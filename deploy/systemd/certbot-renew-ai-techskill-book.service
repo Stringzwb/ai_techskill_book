@@ -1,0 +1,7 @@
+[Unit]
+Description=Renew ai-techskill-book TLS certificate
+After=network-online.target nginx.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/certbot/bin/certbot renew --quiet --deploy-hook "systemctl reload nginx.service"

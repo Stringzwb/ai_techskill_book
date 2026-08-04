@@ -1,0 +1,10 @@
+[Unit]
+Description=Check ai-techskill-book TLS certificate renewal three times daily
+
+[Timer]
+OnCalendar=*-*-* 00,08,16:17:00
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

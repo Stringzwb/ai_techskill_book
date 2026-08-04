@@ -42,6 +42,8 @@ cd ../frontend && npm ci && npm run build
 - 后端：`backend/target/ai-techskill-book-backend.jar`
 - 前端：`frontend/dist/`
 
-真实数据库密码、Nginx、systemd 与服务器部署文件均不保存在本仓库，由部署环境单独管理。
+真实数据库密码和环境配置不保存在本仓库；Nginx 与 systemd 仅提交不含凭据的部署模板。
+
+生产环境的用户登录必须通过 HTTPS，并将 `SESSION_SECURE_COOKIE` 设置为 `true`。
 
 详细代码规范和上线流程见 `docs/代码规范.md` 与 `docs/部署说明.md`。

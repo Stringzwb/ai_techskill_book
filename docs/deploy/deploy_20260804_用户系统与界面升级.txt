@@ -18,3 +18,4 @@
 中间件更新内容
 1. Redis 用于保存七天滑动过期的登录会话
 2. 后端新增 Redis 连接环境配置
+3. 为公网 IP 启用 HTTPS、Secure Cookie 和证书自动续期
