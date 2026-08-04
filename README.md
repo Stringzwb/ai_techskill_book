@@ -7,6 +7,7 @@
 ```text
 backend/                Spring Boot API
 frontend/               Vue 3 + Vite 首页
+es/                     数据服务器与 Elastic Stack 归档
 ```
 
 ## 本地开发
@@ -49,4 +50,4 @@ cd ../frontend && npm ci && npm run build
 
 生产环境的用户登录必须通过 HTTPS，并将 `SESSION_SECURE_COOKIE` 设置为 `true`。
 
-详细代码规范和上线流程见 `docs/代码规范.md` 与 `docs/部署说明.md`。
+详细代码规范和上线流程见 `docs/代码规范.md` 与 `docs/部署说明.md`。数据服务器、Docker、Elasticsearch、Kibana 和测试索引资料统一见 `es/README.md`。

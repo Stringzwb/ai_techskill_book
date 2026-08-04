@@ -37,3 +37,6 @@ logs/
 
 # Local AI handoff document with plaintext credentials
 docs/AI接手信息.md
+
+# Data-server credentials and private Elastic Stack backups
+es/secrets/
