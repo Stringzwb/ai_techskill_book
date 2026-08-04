@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 /**
  * 对象存储键规范测试。
@@ -37,5 +38,16 @@ class StorageObjectKeyFactoryTest {
         assertThatThrownBy(() -> factory.create("../avatar", "42", "png"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("业务目录不符合存储规范");
+    }
+
+    @Test
+    void springSelectsProductionConstructorWhenStorageIsEnabled() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(ObjectStorageProperties.class);
+            context.register(StorageObjectKeyFactory.class);
+            context.refresh();
+
+            assertThat(context.getBean(StorageObjectKeyFactory.class)).isNotNull();
+        }
     }
 }

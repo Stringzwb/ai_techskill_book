@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -30,6 +31,7 @@ public class StorageObjectKeyFactory {
      *
      * @param properties 对象存储配置
      */
+    @Autowired
     public StorageObjectKeyFactory(ObjectStorageProperties properties) {
         this(properties, Clock.systemUTC(), UUID::randomUUID);
     }
