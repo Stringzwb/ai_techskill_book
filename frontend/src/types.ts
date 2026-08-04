@@ -32,6 +32,8 @@ export interface UserProfile {
   email: string | null
   memberLevel: 'SUPER' | 'NORMAL' | 'GUEST' | 'BANNED'
   memberLevelLabel: string
+  userRole: 'USER' | 'SUPER_ADMIN'
+  userRoleLabel: string
   memberExpireTime: string | null
   avatarUrl: string
   authProvider: 'PASSWORD' | 'WECHAT'

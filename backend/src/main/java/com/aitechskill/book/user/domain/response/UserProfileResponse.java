@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
  * @param email 邮箱
  * @param memberLevel 会员等级编码
  * @param memberLevelLabel 会员等级名称
+ * @param userRole 用户角色编码
+ * @param userRoleLabel 用户角色名称
  * @param memberExpireTime 会员到期时间
  * @param avatarUrl 头像地址
  * @param authProvider 认证来源
@@ -25,6 +27,8 @@ public record UserProfileResponse(
         String email,
         String memberLevel,
         String memberLevelLabel,
+        String userRole,
+        String userRoleLabel,
         LocalDateTime memberExpireTime,
         String avatarUrl,
         String authProvider,
@@ -45,6 +49,8 @@ public record UserProfileResponse(
                 user.getEmail(),
                 user.getMemberLevel().getCode(),
                 user.getMemberLevel().getLabel(),
+                user.getUserRole().getCode(),
+                user.getUserRole().getLabel(),
                 user.getMemberExpireTime(),
                 user.getAvatarUrl(),
                 user.getAuthProvider().getCode(),

@@ -126,6 +126,7 @@ async function handleAvatarChange(event: Event) {
         <span class="membership-badge"><BadgeCheck :size="16" /> {{ user.memberLevelLabel }}</span>
         <p>支持 JPG、PNG、WebP，图片不超过 5MB。头像存储在私有对象存储中。</p>
         <dl>
+          <div><dt><ShieldCheck :size="16" /> 账号角色</dt><dd>{{ user.userRoleLabel }}</dd></div>
           <div><dt><CalendarDays :size="16" /> 会员到期</dt><dd>{{ formatDate(user.memberExpireTime) }}</dd></div>
           <div><dt><ShieldCheck :size="16" /> 登录方式</dt><dd>{{ user.authProvider === 'PASSWORD' ? '密码登录' : '微信登录' }}</dd></div>
           <div><dt><CheckCircle2 :size="16" /> 最近登录</dt><dd>{{ formatDate(user.lastLoginTime) }}</dd></div>

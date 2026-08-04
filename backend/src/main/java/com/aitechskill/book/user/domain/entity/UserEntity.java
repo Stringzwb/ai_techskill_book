@@ -3,6 +3,7 @@ package com.aitechskill.book.user.domain.entity;
 import com.aitechskill.book.auth.domain.enums.AuthProvider;
 import com.aitechskill.book.common.domain.entity.BaseEntity;
 import com.aitechskill.book.user.domain.enums.MemberLevel;
+import com.aitechskill.book.user.domain.enums.UserRole;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -38,6 +39,9 @@ public class UserEntity extends BaseEntity {
 
     /** 会员等级。 */
     private MemberLevel memberLevel;
+
+    /** 用户角色。 */
+    private UserRole userRole;
 
     /** 会员到期时间。 */
     private LocalDateTime memberExpireTime;

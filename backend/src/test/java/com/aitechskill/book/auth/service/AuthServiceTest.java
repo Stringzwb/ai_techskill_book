@@ -13,6 +13,7 @@ import com.aitechskill.book.auth.domain.request.RegisterRequest;
 import com.aitechskill.book.common.exception.BusinessException;
 import com.aitechskill.book.user.domain.entity.UserEntity;
 import com.aitechskill.book.user.domain.enums.MemberLevel;
+import com.aitechskill.book.user.domain.enums.UserRole;
 import com.aitechskill.book.user.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -58,6 +59,7 @@ class AuthServiceTest {
 
         assertThat(result.token()).isEqualTo("session-token");
         assertThat(result.user().memberLevel()).isEqualTo(MemberLevel.GUEST.getCode());
+        assertThat(result.user().userRole()).isEqualTo(UserRole.USER.getCode());
         assertThat(result.user().email()).isEqualTo("user@example.com");
         verify(passwordEncoder).encode("password123");
     }

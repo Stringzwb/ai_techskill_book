@@ -7,6 +7,7 @@ import com.aitechskill.book.auth.domain.request.RegisterRequest;
 import com.aitechskill.book.common.exception.BusinessException;
 import com.aitechskill.book.user.domain.entity.UserEntity;
 import com.aitechskill.book.user.domain.enums.MemberLevel;
+import com.aitechskill.book.user.domain.enums.UserRole;
 import com.aitechskill.book.user.domain.response.UserProfileResponse;
 import com.aitechskill.book.user.mapper.UserMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -56,6 +57,7 @@ public class AuthService {
         ensureUnique(user, null);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setMemberLevel(MemberLevel.GUEST);
+        user.setUserRole(UserRole.USER);
         user.setAvatarUrl(defaultAvatarUrl);
         user.setAuthProvider(AuthProvider.PASSWORD);
         user.setDeleted(0);
