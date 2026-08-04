@@ -1,18 +1,36 @@
 spring:
+  # 应用名称。
   application:
     name: ai-techskill-book
+  # MySQL 数据源配置。
   datasource:
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/ai_techskill_book?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    # 数据库连接池配置。
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}
       minimum-idle: 2
       connection-timeout: 10000
+  # Redis 会话存储配置。
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 3s
+  # Flyway 数据库迁移配置。
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
+  # 旧文章模块仍由 JPA 读取，禁止自动修改线上表结构。
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
@@ -20,11 +38,24 @@ spring:
           time_zone: Asia/Shanghai
         format_sql: false
 
+# MyBatis-Plus 逻辑删除配置。
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# Web 服务配置。
 server:
   port: ${SERVER_PORT:8080}
   forward-headers-strategy: framework
   shutdown: graceful
 
+# 健康检查配置。
 management:
   endpoints:
     web:
@@ -35,6 +66,16 @@ management:
       probes:
         enabled: true
 
+# 业务配置。
 app:
+  # 前端跨域配置。
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  # 用户会话配置。
+  session:
+    cookie-name: ${SESSION_COOKIE_NAME:atk_session}
+    ttl: ${SESSION_TTL:7d}
+    secure-cookie: ${SESSION_SECURE_COOKIE:false}
+  # 默认头像配置，头像修改接口暂未开放。
+  user:
+    default-avatar-url: ${DEFAULT_AVATAR_URL:/default-avatar.svg}

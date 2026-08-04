@@ -21,6 +21,7 @@ const fallbackHome: HomeResponse = {
   ],
 }
 
+/** 加载公开首页数据，网络异常时回退到内置展示内容。 */
 export async function fetchHome(): Promise<{ data: HomeResponse; online: boolean }> {
   try {
     const response = await fetch('/api/home', { headers: { Accept: 'application/json' } })

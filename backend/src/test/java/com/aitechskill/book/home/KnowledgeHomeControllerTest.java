@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.aitechskill.book.auth.config.AuthInterceptor;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +21,9 @@ class KnowledgeHomeControllerTest {
 
     @MockBean
     private KnowledgeHomeService service;
+
+    @MockBean
+    private AuthInterceptor authInterceptor;
 
     @Test
     void returnsHomePayload() throws Exception {

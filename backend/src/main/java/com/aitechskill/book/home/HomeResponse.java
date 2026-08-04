@@ -3,6 +3,9 @@ package com.aitechskill.book.home;
 import com.aitechskill.book.article.ArticleSummary;
 import java.util.List;
 
+/**
+ * 公开首页响应。
+ */
 public record HomeResponse(
         String productName,
         String headline,

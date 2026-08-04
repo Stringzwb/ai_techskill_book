@@ -1,0 +1,72 @@
+package com.aitechskill.book.auth.config;
+
+import com.aitechskill.book.auth.domain.SessionRecord;
+import com.aitechskill.book.auth.service.SessionService;
+import com.aitechskill.book.auth.service.SessionTokenService;
+import com.aitechskill.book.auth.utils.UserContextHolder;
+import com.aitechskill.book.common.exception.BusinessException;
+import com.aitechskill.book.user.domain.entity.UserEntity;
+import com.aitechskill.book.user.domain.enums.MemberLevel;
+import com.aitechskill.book.user.mapper.UserMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+/**
+ * 校验受保护接口的 Redis 会话。
+ */
+@Component
+public class AuthInterceptor implements HandlerInterceptor {
+
+    private final SessionTokenService tokenService;
+    private final SessionService sessionService;
+    private final UserMapper userMapper;
+
+    public AuthInterceptor(
+            SessionTokenService tokenService,
+            SessionService sessionService,
+            UserMapper userMapper) {
+        this.tokenService = tokenService;
+        this.sessionService = sessionService;
+        this.userMapper = userMapper;
+    }
+
+    /**
+     * 请求进入控制器前校验登录状态。
+     */
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+            return true;
+        }
+        String token = tokenService.resolveToken(request).orElseThrow(() ->
+                new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "请先登录"));
+        SessionRecord session = sessionService.requireSession(token);
+        UserEntity user = userMapper.selectById(session.userId());
+        if (user == null) {
+            sessionService.revokeSession(token);
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "用户不存在或已注销");
+        }
+        if (user.getMemberLevel() == MemberLevel.BANNED) {
+            sessionService.revokeSession(token);
+            throw new BusinessException(HttpStatus.FORBIDDEN, "USER_BANNED", "该账号已被封禁");
+        }
+        UserContextHolder.setUserId(user.getId());
+        return true;
+    }
+
+    /**
+     * 请求完成后清理线程变量。
+     */
+    @Override
+    public void afterCompletion(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Object handler,
+            Exception exception) {
+        UserContextHolder.clear();
+    }
+}

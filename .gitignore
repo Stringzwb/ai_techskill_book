@@ -34,3 +34,6 @@ secrets/
 # Logs
 *.log
 logs/
+
+# Local AI handoff document with plaintext credentials
+docs/AI接手信息.md

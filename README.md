@@ -1,6 +1,6 @@
 # 技术岗 AI 知识库
 
-面向技术岗位学习与能力进阶的全栈知识库。后端使用 Java 17 + Spring Boot，前端使用 Vue 3 + Vite，数据存储使用 MySQL，生产环境由 Nginx 提供静态资源和 API 反向代理。
+面向技术岗位学习与能力进阶的全栈知识库。后端使用 Java 17 + Spring Boot，前端使用 Vue 3 + Vite，数据存储使用 MySQL，用户会话存储在 Redis，生产环境由 Nginx 提供静态资源和 API 反向代理。
 
 ## 目录结构
 
@@ -11,15 +11,16 @@ frontend/               Vue 3 + Vite 首页
 
 ## 本地开发
 
-后端需要 Java 17+、Maven 3.8+ 和可访问的 MySQL 8：
+后端需要 Java 17+、Maven 3.8+、MySQL 8 和 Redis 6+：
 
 ```bash
 cd backend
 export DB_PASSWORD='请使用本机真实密码，不要写入仓库'
+export REDIS_PASSWORD='请使用本机真实密码，不要写入仓库'
 mvn spring-boot:run
 ```
 
-前端需要 Node.js 18+：
+前端需要 Node.js 20.19+：
 
 ```bash
 cd frontend
@@ -42,3 +43,5 @@ cd ../frontend && npm ci && npm run build
 - 前端：`frontend/dist/`
 
 真实数据库密码、Nginx、systemd 与服务器部署文件均不保存在本仓库，由部署环境单独管理。
+
+详细代码规范和上线流程见 `docs/代码规范.md` 与 `docs/部署说明.md`。

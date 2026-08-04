@@ -24,3 +24,27 @@ export interface HomeResponse {
   categories: CategorySummary[]
   featuredArticles: ArticleSummary[]
 }
+
+export interface UserProfile {
+  id: number
+  username: string
+  phone: string | null
+  email: string | null
+  memberLevel: 'SUPER' | 'NORMAL' | 'GUEST' | 'BANNED'
+  memberLevelLabel: string
+  memberExpireTime: string | null
+  avatarUrl: string
+  authProvider: 'PASSWORD' | 'WECHAT'
+  lastLoginTime: string | null
+  createtime: string
+}
+
+export interface AuthResponse {
+  user: UserProfile
+}
+
+export interface ApiErrorPayload {
+  code: string
+  message: string
+  fieldErrors?: Record<string, string>
+}

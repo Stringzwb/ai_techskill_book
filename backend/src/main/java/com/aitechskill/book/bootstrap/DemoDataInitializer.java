@@ -8,6 +8,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 空库首次启动时初始化演示专题。
+ */
 @Component
 public class DemoDataInitializer implements ApplicationRunner {
 
@@ -17,6 +20,9 @@ public class DemoDataInitializer implements ApplicationRunner {
         this.repository = repository;
     }
 
+    /**
+     * 在专题表为空时写入演示数据。
+     */
     @Override
     @Transactional
     public void run(ApplicationArguments args) {

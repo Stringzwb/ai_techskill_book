@@ -6,6 +6,9 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 公开首页内容服务。
+ */
 @Service
 public class KnowledgeHomeService {
 
@@ -23,6 +26,11 @@ public class KnowledgeHomeService {
         this.repository = repository;
     }
 
+    /**
+     * 汇总首页分类和精选专题。
+     *
+     * @return 首页内容
+     */
     @Transactional(readOnly = true)
     public HomeResponse getHome() {
         List<CategorySummary> categories = CATEGORY_DEFINITIONS.stream()
