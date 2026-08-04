@@ -65,6 +65,22 @@ find "${WEB_ROOT}" -type f -exec chmod 644 {} +
 # 重启服务并完成上线检查。
 systemctl restart ai-techskill-book.service
 systemctl restart nginx.service
+
+# 最多等待 30 秒，避免应用正常启动期间误报部署失败。
+BACKEND_READY=0
+for _ in {1..30}; do
+  if curl -fs http://127.0.0.1:8080/actuator/health > /dev/null 2>&1; then
+    BACKEND_READY=1
+    break
+  fi
+  sleep 1
+done
+if [[ "${BACKEND_READY}" -ne 1 ]]; then
+  systemctl status ai-techskill-book.service --no-pager
+  journalctl -u ai-techskill-book.service -n 80 --no-pager
+  exit 1
+fi
+
 curl -fsS http://127.0.0.1:8080/actuator/health
 curl -fsS http://127.0.0.1:8080/api/ping
 curl -fsSI --resolve 38.22.90.174:443:127.0.0.1 https://38.22.90.174/
