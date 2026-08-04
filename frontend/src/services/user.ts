@@ -14,3 +14,13 @@ export function updateProfile(payload: UpdateProfilePayload) {
     body: JSON.stringify(payload),
   })
 }
+
+/** 上传并替换当前用户头像。 */
+export function uploadAvatar(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<UserProfile>('/api/users/me/avatar', {
+    method: 'POST',
+    body,
+  })
+}

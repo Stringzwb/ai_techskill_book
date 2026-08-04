@@ -21,6 +21,13 @@ spring:
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
       timeout: 3s
+  # 文件上传体积限制，业务层仍需按文件类型单独校验。
+  servlet:
+    multipart:
+      # 单文件最大体积。
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:5MB}
+      # 单次 multipart 请求最大体积。
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:6MB}
   # Flyway 数据库迁移配置。
   flyway:
     enabled: true
@@ -79,3 +86,23 @@ app:
   # 默认头像配置，头像修改接口暂未开放。
   user:
     default-avatar-url: ${DEFAULT_AVATAR_URL:/default-avatar.svg}
+    # 头像业务允许的最大文件体积。
+    avatar-max-size: ${AVATAR_MAX_SIZE:5MB}
+  # S3 兼容对象存储配置，真实凭据只允许通过环境变量注入。
+  storage:
+    # 是否启用对象存储客户端。
+    enabled: ${STORAGE_ENABLED:false}
+    # S3 兼容 API 端点。
+    endpoint: ${STORAGE_ENDPOINT:}
+    # S3 访问密钥标识。
+    access-key: ${STORAGE_ACCESS_KEY:}
+    # S3 访问密钥。
+    secret-key: ${STORAGE_SECRET_KEY:}
+    # 项目存储桶名称。
+    bucket: ${STORAGE_BUCKET:}
+    # S3 请求签名区域。
+    region: ${STORAGE_REGION:us-east-1}
+    # 对象键的环境隔离前缀。
+    environment: ${STORAGE_ENVIRONMENT:local}
+    # S3 兼容服务是否使用 Path Style 地址。
+    path-style: ${STORAGE_PATH_STYLE:true}

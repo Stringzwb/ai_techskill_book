@@ -45,6 +45,9 @@ public class UserEntity extends BaseEntity {
     /** 头像地址。 */
     private String avatarUrl;
 
+    /** 头像对象存储键。 */
+    private String avatarObjectKey;
+
     /** 认证来源。 */
     private AuthProvider authProvider;
 

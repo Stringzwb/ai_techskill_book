@@ -1,6 +1,6 @@
 # 技术岗 AI 知识库
 
-面向技术岗位学习与能力进阶的全栈知识库。后端使用 Java 17 + Spring Boot，前端使用 Vue 3 + Vite，数据存储使用 MySQL，用户会话存储在 Redis，生产环境由 Nginx 提供静态资源和 API 反向代理。
+面向技术岗位学习与能力进阶的全栈知识库。后端使用 Java 17 + Spring Boot，前端使用 Vue 3 + Vite，数据存储使用 MySQL，用户会话存储在 Redis，头像等文件使用私有 S3 兼容对象存储，生产环境由 Nginx 提供静态资源和 API 反向代理。
 
 ## 目录结构
 
@@ -17,6 +17,7 @@ frontend/               Vue 3 + Vite 首页
 cd backend
 export DB_PASSWORD='请使用本机真实密码，不要写入仓库'
 export REDIS_PASSWORD='请使用本机真实密码，不要写入仓库'
+# 需要测试文件上传时，再通过 STORAGE_* 环境变量启用本地对象存储连接。
 mvn spring-boot:run
 ```
 
@@ -43,6 +44,8 @@ cd ../frontend && npm ci && npm run build
 - 前端：`frontend/dist/`
 
 真实数据库密码和环境配置不保存在本仓库；Nginx 与 systemd 仅提交不含凭据的部署模板。
+
+对象存储默认关闭。启用后，文件按 `环境/业务/年/月/归属ID/UUID.扩展名` 保存；存储桶保持私有，前端通过后端受控地址读取头像。
 
 生产环境的用户登录必须通过 HTTPS，并将 `SESSION_SECURE_COOKIE` 设置为 `true`。
 

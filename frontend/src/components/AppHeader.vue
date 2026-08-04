@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { LogIn, LogOut, Menu, Moon, Sun, TerminalSquare, UserRound, X } from '@lucide/vue'
+import { LogIn, LogOut, Menu, Moon, Sun, TerminalSquare, X } from '@lucide/vue'
 import { authStore } from '../stores/auth'
 import { themeStore } from '../stores/theme'
 
@@ -53,7 +53,7 @@ async function handleLogout() {
           </RouterLink>
           <template v-else>
             <RouterLink class="header-user" to="/profile" @click="closeMenu">
-              <span class="mini-avatar"><UserRound :size="17" /></span>
+              <span class="mini-avatar"><img :src="authStore.state.user.avatarUrl" alt="" /></span>
               {{ authStore.state.user.username }}
             </RouterLink>
             <button class="icon-button" type="button" aria-label="退出登录" @click="handleLogout">

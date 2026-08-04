@@ -7,7 +7,7 @@
     <select id="selectByLoginAccount" resultType="com.aitechskill.book.user.domain.entity.UserEntity">
         SELECT
             id, username, phone, email, password_hash, member_level, member_expire_time,
-            avatar_url, auth_provider, wechat_openid, wechat_unionid, last_login_time,
+            avatar_url, avatar_object_key, auth_provider, wechat_openid, wechat_unionid, last_login_time,
             createtime, updatetime, createby, updateby, deleted, reserved1, reserved2, reserved3
         FROM sys_user
         WHERE deleted = 0

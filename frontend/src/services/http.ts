@@ -17,13 +17,13 @@ export class ApiError extends Error {
 
 /** 发送同源 API 请求，并统一处理 JSON 和错误响应。 */
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const hasBody = options.body !== undefined
+  const hasJsonBody = options.body !== undefined && !(options.body instanceof FormData)
   const response = await fetch(path, {
     ...options,
     credentials: 'include',
     headers: {
       Accept: 'application/json',
-      ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+      ...(hasJsonBody ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
     },
   })
