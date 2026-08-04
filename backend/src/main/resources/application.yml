@@ -83,7 +83,7 @@ app:
     cookie-name: ${SESSION_COOKIE_NAME:atk_session}
     ttl: ${SESSION_TTL:7d}
     secure-cookie: ${SESSION_SECURE_COOKIE:false}
-  # 默认头像配置，头像修改接口暂未开放。
+  # 用户头像配置，未上传自定义头像时使用默认头像。
   user:
     default-avatar-url: ${DEFAULT_AVATAR_URL:/default-avatar.svg}
     # 头像业务允许的最大文件体积。
