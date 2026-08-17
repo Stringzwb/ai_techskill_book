@@ -10,6 +10,7 @@ const router = createRouter({
     { path: '/register', name: 'register', component: () => import('./views/RegisterView.vue'), meta: { guestOnly: true } },
     { path: '/library', name: 'library', component: () => import('./views/LibraryView.vue'), meta: { requiresAuth: true } },
     { path: '/documents', name: 'documents', component: () => import('./views/DocumentLibraryView.vue'), meta: { requiresAuth: true } },
+    { path: '/documents/:id', name: 'document-reader', component: () => import('./views/DocumentReaderView.vue'), meta: { requiresAuth: true } },
     { path: '/paths', name: 'paths', component: () => import('./views/PathsView.vue'), meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },

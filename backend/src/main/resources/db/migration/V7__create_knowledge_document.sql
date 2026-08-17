@@ -1,0 +1,40 @@
+CREATE TABLE IF NOT EXISTS `knowledge_document` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '知识文档主键',
+    `document_uuid` CHAR(36) NOT NULL COMMENT '文档稳定归属标识，用于对象存储目录',
+    `title` VARCHAR(160) NOT NULL COMMENT '文档标题',
+    `summary` VARCHAR(600) NOT NULL COMMENT '文档摘要',
+    `status` VARCHAR(16) NOT NULL DEFAULT 'DRAFT' COMMENT '发布状态：DRAFT草稿、PUBLISHED已发布',
+    `markdown_object_key` VARCHAR(500) NOT NULL COMMENT 'Markdown正文私有对象键',
+    `markdown_size` BIGINT NOT NULL DEFAULT 0 COMMENT 'Markdown正文UTF-8字节数',
+    `published_at` DATETIME NULL COMMENT '最近发布时间',
+    `createtime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updatetime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `createby` BIGINT NOT NULL DEFAULT 0 COMMENT '创建人，0表示管理后台',
+    `updateby` BIGINT NOT NULL DEFAULT 0 COMMENT '更新人，0表示管理后台',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0正常、1已删除',
+    `reserved1` VARCHAR(255) NULL COMMENT '冗余字段1',
+    `reserved2` VARCHAR(255) NULL COMMENT '冗余字段2',
+    `reserved3` VARCHAR(255) NULL COMMENT '冗余字段3',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_knowledge_document_uuid` (`document_uuid`),
+    KEY `idx_knowledge_document_status_time` (`status`, `deleted`, `published_at`, `id`),
+    KEY `idx_knowledge_document_title` (`title`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Markdown知识文档';
+
+CREATE TABLE IF NOT EXISTS `knowledge_document_tag` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '文档标签关联主键',
+    `document_id` BIGINT NOT NULL COMMENT '知识文档主键',
+    `tag_id` BIGINT NOT NULL COMMENT '知识标签主键',
+    `createtime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updatetime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `createby` BIGINT NOT NULL DEFAULT 0 COMMENT '创建人，0表示管理后台',
+    `updateby` BIGINT NOT NULL DEFAULT 0 COMMENT '更新人，0表示管理后台',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0正常、1已删除',
+    `reserved1` VARCHAR(255) NULL COMMENT '冗余字段1',
+    `reserved2` VARCHAR(255) NULL COMMENT '冗余字段2',
+    `reserved3` VARCHAR(255) NULL COMMENT '冗余字段3',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_knowledge_document_tag` (`document_id`, `tag_id`),
+    KEY `idx_knowledge_document_tag_tag` (`tag_id`, `deleted`, `document_id`),
+    KEY `idx_knowledge_document_tag_document` (`document_id`, `deleted`, `tag_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='知识文档与标签关联';

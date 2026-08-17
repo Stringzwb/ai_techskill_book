@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aitechskill.book.document.mapper.KnowledgeDocumentMapper">
+    <sql id="publishedFilter">
+        document.deleted = 0
+        AND document.status = 'PUBLISHED'
+        <if test="keyword != null and keyword != ''">
+            AND (document.title LIKE CONCAT('%', #{keyword}, '%')
+                 OR document.summary LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="tagId != null">
+            AND EXISTS (
+                SELECT 1
+                FROM knowledge_document_tag AS filter_link
+                INNER JOIN knowledge_tag AS bound_tag
+                    ON bound_tag.id = filter_link.tag_id AND bound_tag.deleted = 0
+                INNER JOIN knowledge_tag AS scope_tag
+                    ON scope_tag.id = #{tagId} AND scope_tag.deleted = 0
+                WHERE filter_link.document_id = document.id
+                  AND filter_link.deleted = 0
+                  AND bound_tag.tag_path LIKE CONCAT(scope_tag.tag_path, '%')
+            )
+        </if>
+    </sql>
+
+    <select id="selectPublishedPage" resultType="com.aitechskill.book.document.domain.entity.KnowledgeDocumentEntity">
+        SELECT document.*
+        FROM knowledge_document AS document
+        WHERE <include refid="publishedFilter"/>
+        ORDER BY document.published_at DESC, document.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countPublished" resultType="long">
+        SELECT COUNT(*)
+        FROM knowledge_document AS document
+        WHERE <include refid="publishedFilter"/>
+    </select>
+
+    <select id="selectPublishedById" resultType="com.aitechskill.book.document.domain.entity.KnowledgeDocumentEntity">
+        SELECT document.*
+        FROM knowledge_document AS document
+        WHERE document.id = #{id}
+          AND document.deleted = 0
+          AND document.status = 'PUBLISHED'
+        LIMIT 1
+    </select>
+
+    <select id="selectTagsByDocumentIds" resultType="com.aitechskill.book.document.domain.DocumentTagRecord">
+        SELECT link.document_id AS documentId,
+               tag.id,
+               tag.name,
+               tag.level
+        FROM knowledge_document_tag AS link
+        INNER JOIN knowledge_tag AS tag ON tag.id = link.tag_id AND tag.deleted = 0
+        WHERE link.deleted = 0
+          AND link.document_id IN
+        <foreach collection="documentIds" item="documentId" open="(" separator="," close=")">
+            #{documentId}
+        </foreach>
+        ORDER BY tag.level ASC, tag.sort_order ASC, tag.id ASC
+    </select>
+</mapper>

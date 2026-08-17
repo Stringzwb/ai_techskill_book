@@ -67,3 +67,35 @@ export interface KnowledgeTagSelection {
   secondary: KnowledgeTagNode | null
   tertiary: KnowledgeTagNode | null
 }
+
+/** 文档关联标签摘要。 */
+export interface DocumentTag {
+  id: number
+  name: string
+  level: 1 | 2 | 3
+}
+
+/** 文档库列表项。 */
+export interface DocumentSummary {
+  id: number
+  title: string
+  summary: string
+  readingMinutes: number
+  publishedAt: string | null
+  tags: DocumentTag[]
+}
+
+/** 文档库分页响应。 */
+export interface DocumentPage {
+  total: number
+  page: number
+  size: number
+  totalPages: number
+  items: DocumentSummary[]
+}
+
+/** 文档阅读详情。 */
+export interface DocumentDetail extends DocumentSummary {
+  markdown: string
+  updatedAt: string
+}
