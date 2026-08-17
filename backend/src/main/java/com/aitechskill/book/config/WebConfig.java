@@ -56,6 +56,7 @@ public class WebConfig implements WebMvcConfigurer {
                 .excludePathPatterns(
                         "/api/home",
                         "/api/ping",
+                        "/api/knowledge-tags/tree",
                         "/api/auth/login",
                         "/api/auth/register",
                         "/api/auth/logout",

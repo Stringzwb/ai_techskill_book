@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Configuration;
  * MyBatis-Plus 与自动审计配置。
  */
 @Configuration
-@MapperScan("com.aitechskill.book.user.mapper")
+@MapperScan({"com.aitechskill.book.user.mapper", "com.aitechskill.book.tag.mapper"})
 public class MybatisPlusConfig {
 
     /**

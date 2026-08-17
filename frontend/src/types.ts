@@ -50,3 +50,20 @@ export interface ApiErrorPayload {
   message: string
   fieldErrors?: Record<string, string>
 }
+
+/** 可供文档库选择的知识标签树节点。 */
+export interface KnowledgeTagNode {
+  id: number
+  name: string
+  level: 1 | 2 | 3
+  sortOrder: number
+  description: string | null
+  children: KnowledgeTagNode[]
+}
+
+/** 当前选中的三级知识标签路径。 */
+export interface KnowledgeTagSelection {
+  module: KnowledgeTagNode | null
+  secondary: KnowledgeTagNode | null
+  tertiary: KnowledgeTagNode | null
+}

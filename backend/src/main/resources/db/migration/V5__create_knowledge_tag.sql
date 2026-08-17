@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS `knowledge_tag` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '知识标签主键',
+    `name` VARCHAR(64) NOT NULL COMMENT '标签名称，同一父级下由业务层保持唯一',
+    `parent_id` BIGINT NOT NULL DEFAULT 0 COMMENT '父标签主键，0表示一级知识模块',
+    `level` TINYINT NOT NULL COMMENT '层级：1知识模块、2二级标签、3三级标签',
+    `sort_order` INT NOT NULL DEFAULT 0 COMMENT '同级排序值，值越小越靠前',
+    `description` VARCHAR(255) NULL COMMENT '标签说明',
+    `tag_path` VARCHAR(500) NOT NULL DEFAULT '/' COMMENT '层级路径，格式为/一级ID/二级ID/',
+    `createtime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updatetime` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `createby` BIGINT NOT NULL DEFAULT 0 COMMENT '创建人，0表示系统',
+    `updateby` BIGINT NOT NULL DEFAULT 0 COMMENT '更新人，0表示系统',
+    `deleted` TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除：0正常、1已删除',
+    `reserved1` VARCHAR(255) NULL COMMENT '冗余字段1',
+    `reserved2` VARCHAR(255) NULL COMMENT '冗余字段2',
+    `reserved3` VARCHAR(255) NULL COMMENT '冗余字段3',
+    PRIMARY KEY (`id`),
+    KEY `idx_knowledge_tag_parent_sort` (`parent_id`, `deleted`, `sort_order`, `id`),
+    KEY `idx_knowledge_tag_level_deleted` (`level`, `deleted`),
+    KEY `idx_knowledge_tag_path` (`tag_path`(191))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='知识标签树';
