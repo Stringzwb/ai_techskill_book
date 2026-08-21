@@ -122,7 +122,7 @@ public class CommunityService {
     }
 
     @Transactional(readOnly = true)
-    public CommunityPostPageResponse list(String keyword, Long tagId, int page, int size, long viewerId) {
+    public CommunityPostPageResponse list(String keyword, Long tagId, String postType, int page, int size, long viewerId) {
         int safePage = Math.max(1, page);
         int safeSize = Math.min(30, Math.max(1, size));
         LambdaQueryWrapper<CommunityPostEntity> query = Wrappers.lambdaQuery(CommunityPostEntity.class)
@@ -131,6 +131,13 @@ public class CommunityService {
             query.and(q -> q.like(CommunityPostEntity::getTitle, keyword.trim())
                     .or()
                     .like(CommunityPostEntity::getMarkdownContent, keyword.trim()));
+        }
+        if (StringUtils.hasText(postType)) {
+            String normalizedType = postType.trim().toUpperCase(Locale.ROOT);
+            if (!TYPES.contains(normalizedType)) {
+                throw invalid("不支持的分享卡片类型");
+            }
+            query.eq(CommunityPostEntity::getPostType, normalizedType);
         }
         if (tagId != null && tagId > 0) {
             List<CommunityPostTagEntity> relations = postTags.selectList(Wrappers.lambdaQuery(CommunityPostTagEntity.class)
