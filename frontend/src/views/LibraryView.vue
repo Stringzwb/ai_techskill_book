@@ -112,8 +112,10 @@ onMounted(async () => { try { tags.value = await fetchKnowledgeTagTree() } catch
       <div><span>SHARE LIBRARY</span><h1>分享库</h1><p>工程实践的提问、资料、图片、网盘链接与投票讨论。</p></div>
       <button class="primary-button" type="button" @click="showComposer = !showComposer"><Plus :size="18" />发布分享</button>
     </header>
-    <section v-if="showComposer" class="share-composer">
-      <header><div><span>NEW SHARE</span><h2>发布内容</h2></div><button class="close-text" type="button" @click="showComposer = false">收起</button></header>
+    <Teleport to="body">
+    <div v-if="showComposer" class="composer-backdrop" @click.self="showComposer = false">
+    <section class="share-composer" role="dialog" aria-modal="true" aria-labelledby="share-composer-title">
+      <header><div><span>NEW SHARE</span><h2 id="share-composer-title">发布内容</h2></div><button class="icon-button" type="button" title="关闭发布面板" aria-label="关闭发布面板" @click="showComposer = false"><X :size="18" /></button></header>
       <form @submit.prevent="publish">
         <div class="share-type-tabs"><button v-for="(_, type) in typeMeta" :key="type" type="button" :class="{ active: form.postType === type }" @click="setType(type as CommunityPostType)"><MessageCircle v-if="type === 'QUESTION'" :size="16" /><ImagePlus v-else-if="type === 'IMAGE'" :size="16" /><Link2 v-else-if="type === 'LINK'" :size="16" /><FileUp v-else-if="type === 'FILE'" :size="16" /><BarChart3 v-else :size="16" />{{ typeMeta[type as CommunityPostType] }}</button></div>
         <div class="share-form-grid"><label>标题<input v-model.trim="form.title" maxlength="160" required placeholder="用一句话说明要分享的内容" /></label><label>关联知识标签<select v-model="form.tagIds" multiple><option v-for="tag in flatTags" :key="tag.id" :value="tag.id">{{ '　'.repeat(tag.level - 1) }}{{ tag.name }}</option></select><small>最多选择 5 个标签</small></label></div>
@@ -124,6 +126,8 @@ onMounted(async () => { try { tags.value = await fetchKnowledgeTagTree() } catch
         <footer><span v-if="error" class="form-error">{{ error }}</span><button class="primary-button" :disabled="posting" type="submit"><Send :size="16" />{{ posting ? '发布中...' : '发布分享' }}</button></footer>
       </form>
     </section>
+    </div>
+    </Teleport>
     <p v-if="action" class="share-message">{{ action }}</p>
     <div class="share-layout">
       <aside class="share-filter"><label class="library-search"><Search :size="18" /><input v-model="keyword" placeholder="搜索分享" @keyup.enter="load(1)" /></label><button :class="{ active: !activeTag }" type="button" @click="activeTag = undefined; load(1)">全部分享 <small>{{ page.total }}</small></button><div class="share-filter__label">知识标签</div><button v-for="tag in flatTags" :key="tag.id" :class="{ active: activeTag === tag.id }" type="button" @click="activeTag = tag.id; load(1)">{{ '　'.repeat(tag.level - 1) }}{{ tag.name }}</button></aside>
