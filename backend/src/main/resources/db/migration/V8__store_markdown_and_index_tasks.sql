@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `knowledge_document_index_task` (
     `document_id` BIGINT NOT NULL COMMENT '知识文档主键',
     `content_version` BIGINT NOT NULL COMMENT '任务对应的正文版本',
     `task_type` VARCHAR(16) NOT NULL COMMENT '任务类型：UPSERT写入、DELETE删除',
-    `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '任务状态：PENDING、PROCESSING、SUCCEEDED、FAILED',
+    `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '任务状态：PENDING、DISPATCHED、PROCESSING、SUCCEEDED、FAILED',
     `retry_count` INT NOT NULL DEFAULT 0 COMMENT '已重试次数',
     `available_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '允许再次投递时间',
     `last_error` VARCHAR(500) NULL COMMENT '最近一次失败摘要',

@@ -24,6 +24,7 @@ application-prod.yaml
 server-config/
 secrets/
 *.token
+deploy/backend.env
 
 # IDE / OS
 .idea/
