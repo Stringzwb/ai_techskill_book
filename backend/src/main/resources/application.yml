@@ -2,10 +2,25 @@ spring:
   # 应用名称。
   application:
     name: ai-techskill-book
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}
+    properties:
+      # Kafka 网络认证协议，例如 SASL_PLAINTEXT 或 SASL_SSL。
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      # Kafka SASL 认证机制。
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+      # Kafka SASL 登录用户名。
+      sasl.jaas.config: org.apache.kafka.common.security.plain.PlainLoginModule required username="${KAFKA_USERNAME:}" password="${KAFKA_PASSWORD:}";
+    consumer:
+      group-id: ${KAFKA_DOCUMENT_INDEX_GROUP:ai-techskill-book-indexer}
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
   # MySQL 数据源配置。
   datasource:
     url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/ai_techskill_book?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
-    username: ${DB_USERNAME:root}
+    username: ${DB_USERNAME:}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 数据库连接池配置。
@@ -73,8 +88,41 @@ management:
       probes:
         enabled: true
 
-# 业务配置。
+  # 业务配置。
 app:
+  # 文档正文和异步索引配置。
+  document:
+    # 仅首次迁移历史对象存储正文时开启，完成后必须关闭。
+    migrate-object-storage-on-startup: ${DOCUMENT_MIGRATE_OBJECT_STORAGE_ON_STARTUP:false}
+    # Markdown 正文最大 UTF-8 字节数。
+    max-markdown-size: ${DOCUMENT_MAX_MARKDOWN_SIZE:1MB}
+  # 文档分块与 Elasticsearch 索引配置。
+  index:
+    enabled: ${INDEX_ENABLED:false}
+    embedding:
+      # 是否调用兼容 OpenAI 的 Embeddings API。
+      enabled: ${INDEX_EMBEDDING_ENABLED:false}
+      # Embeddings 提供方标识。
+      provider: ${INDEX_EMBEDDING_PROVIDER:openai-compatible}
+      # 向量模型名称。
+      model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+      # OpenAI 兼容 API 地址。
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+      # API 密钥只从运行时环境注入。
+      api-key: ${OPENAI_API_KEY:}
+      # ES dense_vector 维度，必须与模型输出一致。
+      dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:1536}
+    kafka:
+      brokers: ${KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}
+      topic: ${KAFKA_DOCUMENT_INDEX_TOPIC:knowledge-document-index}
+      group-id: ${KAFKA_DOCUMENT_INDEX_GROUP:ai-techskill-book-indexer}
+    elasticsearch:
+      endpoint: ${ELASTICSEARCH_URL:http://127.0.0.1:9200}
+      username: ${ELASTICSEARCH_USERNAME:}
+      password: ${ELASTICSEARCH_PASSWORD:}
+      index: ${ELASTICSEARCH_INDEX:knowledge_documents}
+      chunk-size: ${ELASTICSEARCH_CHUNK_SIZE:1800}
+      chunk-overlap: ${ELASTICSEARCH_CHUNK_OVERLAP:200}
   # 前端跨域配置。
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

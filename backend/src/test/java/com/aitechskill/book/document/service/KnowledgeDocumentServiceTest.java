@@ -2,16 +2,12 @@ package com.aitechskill.book.document.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
 
 import com.aitechskill.book.document.domain.DocumentTagRecord;
 import com.aitechskill.book.document.domain.entity.KnowledgeDocumentEntity;
 import com.aitechskill.book.document.domain.response.DocumentDetailResponse;
 import com.aitechskill.book.document.domain.response.DocumentPageResponse;
 import com.aitechskill.book.document.mapper.KnowledgeDocumentMapper;
-import com.aitechskill.book.storage.domain.StoredObjectContent;
-import com.aitechskill.book.storage.service.ObjectStorageService;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,14 +24,11 @@ class KnowledgeDocumentServiceTest {
 
     @Mock
     private KnowledgeDocumentMapper documentMapper;
-    @Mock
-    private ObjectStorageService objectStorageService;
-
     private KnowledgeDocumentService service;
 
     @BeforeEach
     void setUp() {
-        service = new KnowledgeDocumentService(documentMapper, objectStorageService);
+        service = new KnowledgeDocumentService(documentMapper);
     }
 
     /** 验证列表结果包含分页、阅读时长和关联标签。 */
@@ -57,21 +50,17 @@ class KnowledgeDocumentServiceTest {
         });
     }
 
-    /** 验证详情正文通过对象存储读取且不会返回对象键。 */
+    /** 验证详情正文直接从 MySQL 文档记录读取。 */
     @Test
     void readsMarkdownFromPrivateStorage() {
         KnowledgeDocumentEntity document = document(12L, "Spring Boot 启动流程", 120L);
-        document.setMarkdownObjectKey("prod/article/2026/08/owner/body.md");
-        byte[] markdown = "# 启动流程".getBytes(StandardCharsets.UTF_8);
+        document.setMarkdownContent("# 启动流程");
         given(documentMapper.selectPublishedById(12L)).willReturn(document);
         given(documentMapper.selectTagsByDocumentIds(List.of(12L))).willReturn(List.of());
-        given(objectStorageService.get(document.getMarkdownObjectKey()))
-                .willReturn(new StoredObjectContent(markdown, "text/markdown", markdown.length));
 
         DocumentDetailResponse response = service.getPublishedDocument(12L);
 
         assertThat(response.markdown()).isEqualTo("# 启动流程");
-        verify(objectStorageService).get("prod/article/2026/08/owner/body.md");
     }
 
     /** 创建用于服务测试的文档实体。 */

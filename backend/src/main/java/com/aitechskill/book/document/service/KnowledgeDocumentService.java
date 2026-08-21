@@ -8,9 +8,6 @@ import com.aitechskill.book.document.domain.response.DocumentPageResponse;
 import com.aitechskill.book.document.domain.response.DocumentSummaryResponse;
 import com.aitechskill.book.document.domain.response.DocumentTagResponse;
 import com.aitechskill.book.document.mapper.KnowledgeDocumentMapper;
-import com.aitechskill.book.storage.domain.StoredObjectContent;
-import com.aitechskill.book.storage.service.ObjectStorageService;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -29,13 +26,8 @@ public class KnowledgeDocumentService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final KnowledgeDocumentMapper documentMapper;
-    private final ObjectStorageService objectStorageService;
-
-    public KnowledgeDocumentService(
-            KnowledgeDocumentMapper documentMapper,
-            ObjectStorageService objectStorageService) {
+    public KnowledgeDocumentService(KnowledgeDocumentMapper documentMapper) {
         this.documentMapper = documentMapper;
-        this.objectStorageService = objectStorageService;
     }
 
     /** 查询已发布文档并附加标签摘要。 */
@@ -74,8 +66,10 @@ public class KnowledgeDocumentService {
         if (document == null) {
             throw new BusinessException(HttpStatus.NOT_FOUND, "DOCUMENT_NOT_FOUND", "文档不存在或尚未发布");
         }
-        StoredObjectContent storedContent = objectStorageService.get(document.getMarkdownObjectKey());
-        String markdown = new String(storedContent.content(), StandardCharsets.UTF_8);
+        String markdown = document.getMarkdownContent();
+        if (markdown == null) {
+            throw new BusinessException(HttpStatus.SERVICE_UNAVAILABLE, "DOCUMENT_MIGRATION_PENDING", "文档正文正在迁移，请稍后重试");
+        }
         List<DocumentTagResponse> tags = loadTags(List.of(document)).getOrDefault(id, List.of());
         return new DocumentDetailResponse(
                 document.getId(),

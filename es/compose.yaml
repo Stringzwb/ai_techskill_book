@@ -7,9 +7,11 @@ services:
       discovery.type: single-node
       xpack.security.enabled: "true"
       xpack.security.http.ssl.enabled: "false"
+      xpack.ml.enabled: "false"
       bootstrap.memory_lock: "true"
-      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+      ES_JAVA_OPTS: "-Xms768m -Xmx768m"
       ELASTIC_PASSWORD: "${ELASTIC_PASSWORD}"
+    mem_limit: 2g
     ulimits:
       memlock:
         soft: -1
@@ -43,11 +45,12 @@ services:
       ELASTICSEARCH_SERVICEACCOUNTTOKEN: "${KIBANA_SERVICE_TOKEN}"
       XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: "${KIBANA_ENCRYPTION_KEY}"
       XPACK_REPORTING_ENCRYPTIONKEY: "${KIBANA_REPORTING_KEY}"
+      XPACK_REPORTING_ENABLED: "false"
       XPACK_SECURITY_ENCRYPTIONKEY: "${KIBANA_SECURITY_KEY}"
       TELEMETRY_ENABLED: "false"
       I18N_LOCALE: "zh-CN"
-      NODE_OPTIONS: "--max-old-space-size=512"
-    mem_limit: 1g
+      NODE_OPTIONS: "--max-old-space-size=384"
+    mem_limit: 768m
     ports:
       - "5601:5601"
     volumes:

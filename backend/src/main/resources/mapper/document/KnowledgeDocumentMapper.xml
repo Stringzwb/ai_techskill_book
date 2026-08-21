@@ -31,6 +31,81 @@
         LIMIT #{size} OFFSET #{offset}
     </select>
 
+    <select id="selectDocumentsNeedingMigration" resultType="com.aitechskill.book.document.domain.entity.KnowledgeDocumentEntity">
+        SELECT document.*
+        FROM knowledge_document AS document
+        WHERE document.deleted = 0
+          AND document.markdown_content IS NULL
+          AND document.markdown_object_key IS NOT NULL
+        ORDER BY document.id ASC
+    </select>
+
+    <update id="updateMigratedMarkdown">
+        UPDATE knowledge_document
+        SET markdown_content = #{markdownContent},
+            markdown_size = #{markdownSize},
+            content_version = 1,
+            index_status = 'PENDING',
+            index_error = NULL,
+            updatetime = CURRENT_TIMESTAMP,
+            updateby = 0
+        WHERE id = #{id}
+          AND deleted = 0
+          AND markdown_content IS NULL
+    </update>
+
+    <insert id="insertIndexTaskIfAbsent">
+        INSERT INTO knowledge_document_index_task
+            (document_id, content_version, task_type, status, retry_count, available_at,
+             createby, updateby, deleted)
+        VALUES (#{documentId}, #{contentVersion}, #{taskType}, 'PENDING', 0, CURRENT_TIMESTAMP,
+                0, 0, 0)
+        ON DUPLICATE KEY UPDATE updatetime = updatetime
+    </insert>
+
+    <select id="selectForIndex" resultType="com.aitechskill.book.document.domain.entity.KnowledgeDocumentEntity">
+        SELECT document.*
+        FROM knowledge_document AS document
+        WHERE document.id = #{id}
+        LIMIT 1
+    </select>
+
+    <update id="claimIndexTask">
+        UPDATE knowledge_document_index_task
+        SET status = 'PROCESSING', updatetime = CURRENT_TIMESTAMP, updateby = 0
+        WHERE id = #{taskId}
+          AND deleted = 0
+          AND status IN ('PENDING', 'FAILED')
+          AND available_at &lt;= CURRENT_TIMESTAMP
+    </update>
+
+    <update id="markIndexTaskSucceeded">
+        UPDATE knowledge_document_index_task
+        SET status = 'SUCCEEDED', last_error = NULL, updatetime = CURRENT_TIMESTAMP, updateby = 0
+        WHERE id = #{taskId} AND deleted = 0 AND status = 'PROCESSING'
+    </update>
+
+    <update id="markIndexTaskFailed">
+        UPDATE knowledge_document_index_task
+        SET status = 'FAILED', retry_count = retry_count + 1, last_error = #{error},
+            available_at = #{availableAt}, updatetime = CURRENT_TIMESTAMP, updateby = 0
+        WHERE id = #{taskId} AND deleted = 0 AND status = 'PROCESSING'
+    </update>
+
+    <update id="markDocumentIndexSucceeded">
+        UPDATE knowledge_document
+        SET index_status = 'SUCCEEDED', index_error = NULL,
+            index_updated_at = CURRENT_TIMESTAMP, updatetime = CURRENT_TIMESTAMP, updateby = 0
+        WHERE id = #{documentId} AND content_version = #{contentVersion}
+    </update>
+
+    <update id="markDocumentIndexFailed">
+        UPDATE knowledge_document
+        SET index_status = 'FAILED', index_error = #{error},
+            index_updated_at = CURRENT_TIMESTAMP, updatetime = CURRENT_TIMESTAMP, updateby = 0
+        WHERE id = #{documentId} AND content_version = #{contentVersion}
+    </update>
+
     <select id="countPublished" resultType="long">
         SELECT COUNT(*)
         FROM knowledge_document AS document

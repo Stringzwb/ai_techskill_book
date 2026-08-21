@@ -32,11 +32,26 @@ public class KnowledgeDocumentEntity extends BaseEntity {
     /** 发布状态。 */
     private String status;
 
-    /** Markdown 正文私有对象键。 */
+    /** 历史 Markdown 正文私有对象键，仅用于迁移和回退审计。 */
     private String markdownObjectKey;
 
     /** Markdown 正文字节数。 */
     private Long markdownSize;
+
+    /** 正文版本号。 */
+    private Long contentVersion;
+
+    /** 当前索引状态。 */
+    private String indexStatus;
+
+    /** 最近一次索引错误摘要。 */
+    private String indexError;
+
+    /** 最近一次索引处理时间。 */
+    private LocalDateTime indexUpdatedAt;
+
+    /** MySQL 中保存的 Markdown 正文。 */
+    private String markdownContent;
 
     /** 最近发布时间。 */
     private LocalDateTime publishedAt;
