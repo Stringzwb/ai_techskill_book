@@ -75,8 +75,10 @@
         SET status = 'PROCESSING', updatetime = CURRENT_TIMESTAMP, updateby = 0
         WHERE id = #{taskId}
           AND deleted = 0
-          AND status IN ('PENDING', 'FAILED', 'DISPATCHED')
-          AND available_at &lt;= CURRENT_TIMESTAMP
+          AND (
+              status = 'DISPATCHED'
+              OR (status IN ('PENDING', 'FAILED') AND available_at &lt;= CURRENT_TIMESTAMP)
+          )
     </update>
 
     <update id="markIndexTaskSucceeded">
