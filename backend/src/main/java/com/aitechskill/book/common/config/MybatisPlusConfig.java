@@ -15,7 +15,8 @@ import org.springframework.context.annotation.Configuration;
 @MapperScan({
         "com.aitechskill.book.user.mapper",
         "com.aitechskill.book.tag.mapper",
-        "com.aitechskill.book.document.mapper"
+        "com.aitechskill.book.document.mapper",
+        "com.aitechskill.book.community.mapper"
 })
 public class MybatisPlusConfig {
 
