@@ -71,7 +71,7 @@ public class ElasticsearchChunkIndexService {
         ensureIndex();
         Map<String, Object> body = Map.of(
                 "query", Map.of("term", Map.of("document_id", documentId)));
-        request("POST", "/" + indexName + "/_delete_by_query?conflicts=proceed&refresh=wait_for", body);
+        request("POST", "/" + indexName + "/_delete_by_query?conflicts=proceed&refresh=true", body);
     }
 
     /** 删除旧版本后批量写入当前正文分块。 */
