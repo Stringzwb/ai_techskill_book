@@ -99,3 +99,14 @@ export interface DocumentDetail extends DocumentSummary {
   markdown: string
   updatedAt: string
 }
+
+export type CommunityPostType = 'QUESTION' | 'IMAGE' | 'LINK' | 'FILE' | 'VOTE'
+export interface CommunityTag { id: number; name: string; level: 1 | 2 | 3 }
+export interface CommunityAuthor { id: number; username: string; avatarUrl: string }
+export interface CommunityAttachment { id: number; originalName: string; contentType: string; extension: string; sizeBytes: number; attachmentType: 'IMAGE' | 'FILE'; previewable: boolean }
+export interface CommunityVoteOption { id: number; text: string; voteCount: number }
+export interface CommunityVote { question: string; allowMultiple: boolean; anonymous: boolean; voteCount: number; voted: boolean; options: CommunityVoteOption[] }
+export interface CommunityPost { id:number; postType:CommunityPostType; title:string; markdown:string|null; linkUrl:string|null; linkDomain:string|null; author:CommunityAuthor; tags:CommunityTag[]; attachments:CommunityAttachment[]; vote:CommunityVote|null; commentCount:number; publishedAt:string; canDelete:boolean }
+export interface CommunityPostPage { total:number; page:number; size:number; totalPages:number; items:CommunityPost[] }
+export interface CommunityComment { id:number; parentId:number|null; markdown:string; author:CommunityAuthor; createdAt:string; children:CommunityComment[] }
+export interface CommunityAttachmentPreview { title: string; content: string; truncated: boolean }

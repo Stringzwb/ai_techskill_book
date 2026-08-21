@@ -258,6 +258,117 @@ a { color: inherit; text-decoration: none; }
 .avatar-upload-status { min-height: 22px; margin-top: 9px; font-size: 12px; }
 .avatar-upload-status .form-error { display: block; margin: 0; }
 .profile-summary-card h2 { margin: 18px 0 9px; }
+
+/* 分享库：以连续讨论流为主，标签与操作保持在低干扰的辅助层。 */
+.share-library { padding: 48px 0 84px; }
+.share-heading { padding: 0 0 28px; display: flex; align-items: end; justify-content: space-between; gap: 24px; border-bottom: 1px solid var(--border); }
+.share-heading > div > span, .share-composer header span { color: var(--primary); font-size: 11px; font-weight: 800; letter-spacing: 0.12em; }
+.share-heading h1 { margin: 8px 0 10px; font-size: 38px; line-height: 1.1; letter-spacing: 0; }
+.share-heading p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.share-composer { margin: 24px 0; padding: 22px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 10px 26px rgba(30, 57, 50, 0.05); }
+.share-composer > header { display: flex; align-items: start; justify-content: space-between; gap: 18px; }
+.share-composer h2 { margin: 5px 0 0; font-size: 20px; letter-spacing: 0; }
+.close-text { padding: 5px 0; color: var(--muted); border: 0; background: transparent; font-size: 13px; }
+.close-text:hover { color: var(--primary); }
+.share-composer form { margin-top: 20px; display: grid; gap: 16px; }
+.share-composer label { display: grid; gap: 7px; color: var(--text); font-size: 13px; font-weight: 650; }
+.share-composer input, .share-composer select, .share-composer textarea { width: 100%; color: var(--text); border: 1px solid var(--border); border-radius: 7px; background: var(--surface-soft); font: inherit; }
+.share-composer input { min-height: 42px; padding: 0 12px; }
+.share-composer select { min-height: 96px; padding: 7px; }
+.share-composer textarea { min-height: 150px; padding: 12px; resize: vertical; line-height: 1.65; }
+.share-composer input:focus, .share-composer select:focus, .share-composer textarea:focus { outline: 0; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
+.share-composer small { color: var(--subtle); font-size: 11px; font-weight: 500; line-height: 1.5; }
+.share-composer > form > footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.share-type-tabs { display: flex; gap: 6px; padding-bottom: 13px; overflow-x: auto; border-bottom: 1px solid var(--border); }
+.share-type-tabs button { flex: 0 0 auto; min-height: 35px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); border: 1px solid transparent; border-radius: 6px; background: transparent; font-size: 12px; font-weight: 700; }
+.share-type-tabs button:hover { color: var(--primary); background: var(--primary-soft); }
+.share-type-tabs button.active { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 32%, var(--border)); background: var(--primary-soft); }
+.share-form-grid { display: grid; grid-template-columns: 1fr 0.75fr; gap: 16px; }
+.selected-files { display: grid; gap: 6px; padding: 11px; color: var(--muted); border: 1px dashed var(--border); border-radius: 7px; background: var(--surface-soft); font-size: 12px; }
+.vote-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.vote-options .secondary-button { width: fit-content; align-self: end; }
+.vote-settings { display: flex; flex-wrap: wrap; gap: 19px; }
+.vote-settings label { width: fit-content; display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
+.vote-settings input { width: auto; min-height: auto; }
+.share-message { margin: 0 0 16px; color: var(--success); font-size: 13px; font-weight: 650; }
+.share-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 32px; align-items: start; }
+.share-filter { position: sticky; top: 96px; display: grid; gap: 3px; padding: 0 12px 0 0; border-right: 1px solid var(--border); }
+.library-search { height: 40px; margin-bottom: 13px; padding: 0 10px; display: flex; align-items: center; gap: 7px; color: var(--subtle); border: 1px solid var(--border); border-radius: 7px; background: var(--surface); }
+.library-search:focus-within { color: var(--primary); border-color: var(--primary); }
+.library-search input { width: 100%; min-width: 0; color: var(--text); border: 0; outline: 0; background: transparent; font-size: 13px; }
+.share-filter > button { min-height: 34px; padding: 0 9px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); border: 0; border-radius: 5px; background: transparent; text-align: left; font-size: 13px; }
+.share-filter > button:hover { color: var(--text); background: var(--bg-soft); }
+.share-filter > button.active { color: var(--primary); background: var(--primary-soft); font-weight: 700; }
+.share-filter > button small { color: var(--subtle); font-size: 11px; }
+.share-filter__label { margin: 18px 8px 5px; color: var(--subtle); font-size: 11px; font-weight: 750; letter-spacing: 0.08em; }
+.share-feed { min-width: 0; display: grid; gap: 13px; }
+.share-error { padding: 12px 14px; color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); border-radius: 7px; background: var(--danger-soft); font-size: 13px; }
+.share-card { overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.share-card > header { padding: 16px 19px 0; display: flex; align-items: center; gap: 10px; }
+.share-card > header > img, .comment-item header img { width: 32px; height: 32px; display: block; flex: 0 0 auto; border: 1px solid var(--border); border-radius: 7px; object-fit: cover; background: var(--primary-soft); }
+.share-card > header > div { min-width: 0; display: grid; gap: 2px; }
+.share-card > header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.share-card > header small { color: var(--subtle); font-size: 11px; }
+.delete-button { width: 30px; height: 30px; margin-left: auto; display: grid; place-items: center; color: var(--subtle); border: 0; border-radius: 5px; background: transparent; }
+.delete-button:hover { color: var(--danger); background: var(--danger-soft); }
+.share-card__body { padding: 14px 19px 18px; }
+.share-card__body h2 { margin: 9px 0 12px; font-size: 19px; line-height: 1.45; letter-spacing: 0; overflow-wrap: anywhere; }
+.share-card__body .markdown-body { font-size: 14px; line-height: 1.8; }
+.share-card__body .markdown-body h1, .share-card__body .markdown-body h2, .share-card__body .markdown-body h3 { margin-top: 1.2em; }
+.share-card__tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.share-card__tags span { padding: 3px 6px; color: var(--primary); border-radius: 4px; background: var(--primary-soft); font-size: 11px; font-weight: 650; }
+.shared-link { min-height: 57px; margin-top: 14px; padding: 10px 12px; display: grid; grid-template-columns: 19px minmax(0, 1fr); column-gap: 8px; align-items: center; color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 27%, var(--border)); border-radius: 7px; background: var(--primary-soft); }
+.shared-link > span { font-size: 13px; font-weight: 750; }
+.shared-link > small { grid-column: 2; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.share-images { margin-top: 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.share-images a { aspect-ratio: 1.25; overflow: hidden; border-radius: 6px; background: var(--bg-soft); }
+.share-images img { width: 100%; height: 100%; display: block; object-fit: cover; transition: transform 0.18s ease; }
+.share-images a:hover img { transform: scale(1.03); }
+.share-files { margin-top: 14px; display: grid; gap: 7px; }
+.share-files > div { min-height: 58px; padding: 10px 11px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-soft); }
+.share-files > div > svg { flex: 0 0 auto; color: var(--accent); }
+.share-files > div > span { min-width: 0; margin-right: auto; display: grid; gap: 4px; }
+.share-files strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.share-files small { color: var(--subtle); font-size: 11px; }
+.share-files a, .share-files button { padding: 4px 5px; color: var(--primary); border: 0; background: transparent; font-size: 12px; font-weight: 700; }
+.share-vote { margin-top: 16px; padding: 14px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-soft); }
+.share-vote header { margin-bottom: 10px; display: grid; gap: 4px; }
+.share-vote header strong { font-size: 14px; }
+.share-vote header small { color: var(--subtle); font-size: 11px; }
+.share-vote label { min-height: 39px; margin-top: 6px; padding: 0 10px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface); font-size: 13px; }
+.share-vote label.chosen { border-color: var(--primary); background: var(--primary-soft); }
+.share-vote label span { margin-right: auto; }
+.share-vote label b { color: var(--primary); font-size: 12px; }
+.share-vote footer { margin-top: 10px; }
+.share-vote > p { margin: 11px 0 0; color: var(--muted); font-size: 12px; }
+.share-card__footer { min-height: 42px; padding: 0 19px; display: flex; align-items: center; border-top: 1px solid var(--border); }
+.share-card__footer button { padding: 5px 0; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); border: 0; background: transparent; font-size: 12px; }
+.share-card__footer button:hover { color: var(--primary); }
+.share-comments { padding: 15px 19px 19px; border-top: 1px solid var(--border); background: var(--surface-soft); }
+.comment-compose { display: flex; align-items: end; gap: 8px; }
+.comment-compose textarea { width: 100%; min-height: 62px; padding: 9px 10px; color: var(--text); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font: inherit; font-size: 13px; line-height: 1.55; resize: vertical; }
+.comment-compose textarea:focus { outline: 0; border-color: var(--primary); }
+.comment-compose .icon-button { flex: 0 0 auto; }
+.comment-thread { margin-top: 16px; display: grid; gap: 12px; }
+.comment-item { padding: 0 0 0 12px; border-left: 2px solid var(--border); }
+.comment-item > header { display: flex; align-items: center; gap: 8px; }
+.comment-item > header img { width: 25px; height: 25px; border-radius: 6px; }
+.comment-item > header strong { font-size: 12px; }
+.comment-item > header time { margin-left: auto; color: var(--subtle); font-size: 11px; }
+.comment-item > .markdown-body { margin: 8px 0 6px; font-size: 13px; line-height: 1.65; }
+.comment-reply { padding: 3px 0; display: inline-flex; align-items: center; gap: 4px; color: var(--muted); border: 0; background: transparent; font-size: 11px; }
+.comment-reply:hover { color: var(--primary); }
+.comment-item .comment-thread { margin: 12px 0 0; }
+.comment-item .comment-compose { margin-top: 10px; }
+.empty-state { min-height: 270px; padding: 32px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 9px; color: var(--muted); border: 1px dashed var(--border); border-radius: 8px; text-align: center; font-size: 13px; }
+.empty-state p { margin: 0; }
+.preview-backdrop { position: fixed; z-index: 100; inset: 0; padding: 32px; display: grid; place-items: center; background: rgba(14, 24, 21, 0.52); }
+.preview-panel { width: min(860px, 100%); max-height: min(78vh, 760px); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.preview-panel > header { padding: 16px 18px; display: flex; justify-content: space-between; gap: 15px; border-bottom: 1px solid var(--border); }
+.preview-panel header small { color: var(--subtle); font-size: 11px; }
+.preview-panel h2 { max-width: 680px; margin: 4px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; letter-spacing: 0; }
+.preview-panel pre { min-height: 200px; margin: 0; padding: 18px; overflow: auto; color: var(--text); background: var(--surface-soft); font: 13px/1.7 "SFMono-Regular", Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.preview-panel footer, .preview-state { margin: 0; padding: 11px 18px; color: var(--muted); border-top: 1px solid var(--border); font-size: 12px; }
 .membership-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; color: var(--primary); border-radius: 999px; background: var(--primary-soft); font-size: 12px; font-weight: 700; }
 .profile-summary-card > p { margin: 18px 0 25px; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .profile-summary-card dl { margin: 0; display: grid; gap: 1px; text-align: left; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
@@ -288,6 +399,11 @@ a { color: inherit; text-decoration: none; }
   .document-library-layout { grid-template-columns: 1fr; }
   .document-filter-panel { position: static; }
   .document-filter-panel .tag-selector-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .share-layout { grid-template-columns: 1fr; gap: 19px; }
+  .share-filter { position: static; padding: 0 0 12px; display: flex; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); }
+  .share-filter .library-search { width: 100%; }
+  .share-filter > button { min-height: 32px; width: auto; }
+  .share-filter__label { width: 100%; margin: 11px 0 3px; }
 }
 
 @media (max-width: 680px) {
@@ -325,5 +441,20 @@ a { color: inherit; text-decoration: none; }
   .markdown-body h2 { font-size: 21px; }
   .markdown-body table { display: block; overflow-x: auto; }
   .library-card > div { gap: 12px; }
+  .share-library { padding: 34px 0 62px; }
+  .share-heading { align-items: start; flex-direction: column; padding-bottom: 21px; }
+  .share-heading h1 { font-size: 33px; }
+  .share-heading .primary-button { width: 100%; }
+  .share-composer { margin: 18px 0; padding: 17px; }
+  .share-form-grid, .vote-options { grid-template-columns: 1fr; }
+  .share-composer > form > footer { align-items: stretch; flex-direction: column; }
+  .share-composer > form > footer .primary-button { width: 100%; }
+  .share-images { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .share-card > header, .share-card__body, .share-card__footer, .share-comments { padding-left: 14px; padding-right: 14px; }
+  .share-files > div { align-items: start; flex-wrap: wrap; }
+  .share-files > div > span { width: calc(100% - 32px); }
+  .share-files > div > a, .share-files > div > button { margin-left: 30px; }
+  .preview-backdrop { padding: 15px; }
+  .preview-panel { max-height: 88vh; }
   .site-footer { padding: 23px 0; align-items: flex-start; flex-direction: column; }
 }

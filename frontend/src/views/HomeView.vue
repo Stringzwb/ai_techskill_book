@@ -22,7 +22,7 @@ onMounted(async () => {
         <h1>少一点信息噪音，<br /><span>多一点可执行的成长。</span></h1>
         <p>把后端、前端、AI、数据与架构知识整理成清晰的专题和学习路径，帮助你更高效地理解、练习和复盘。</p>
         <div class="hero-actions">
-          <RouterLink class="primary-button" to="/library">进入知识库 <ArrowRight :size="17" /></RouterLink>
+          <RouterLink class="primary-button" to="/library">进入分享库 <ArrowRight :size="17" /></RouterLink>
           <RouterLink class="secondary-button" to="/paths">查看成长路径</RouterLink>
         </div>
       </div>

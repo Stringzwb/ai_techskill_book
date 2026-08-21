@@ -4,11 +4,14 @@ import com.aitechskill.book.storage.config.ObjectStorageProperties;
 import com.aitechskill.book.storage.domain.StorageObjectRequest;
 import com.aitechskill.book.storage.domain.StoredObject;
 import com.aitechskill.book.storage.domain.StoredObjectContent;
+import com.aitechskill.book.storage.domain.StoredObjectStream;
+import com.aitechskill.book.storage.domain.StorageObjectStreamRequest;
 import com.aitechskill.book.storage.exception.ObjectStorageException;
 import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -58,6 +61,22 @@ public class S3ObjectStorageService implements ObjectStorageService {
         }
     }
 
+    /** 以流方式上传，避免 300MB 附件复制到 JVM 堆。 */
+    @Override
+    public StoredObject putStream(StorageObjectStreamRequest request) {
+        String objectKey = keyFactory.create(request.business(), request.ownerId(), request.extension());
+        try (var input = request.inputStream()) {
+            s3Client.putObject(PutObjectRequest.builder().bucket(properties.getBucket()).key(objectKey)
+                            .contentType(request.contentType()).contentLength(request.contentLength())
+                            .cacheControl("private, max-age=604800")
+                            .metadata(Map.of("business", request.business(), "owner-id", request.ownerId())).build(),
+                    RequestBody.fromInputStream(input, request.contentLength()));
+            return new StoredObject(objectKey, request.contentType(), request.contentLength());
+        } catch (Exception exception) {
+            throw new ObjectStorageException("对象存储写入失败", exception);
+        }
+    }
+
     /** 读取对象内容。 */
     @Override
     public StoredObjectContent get(String objectKey) {
@@ -69,6 +88,20 @@ public class S3ObjectStorageService implements ObjectStorageService {
             String contentType = response.response().contentType();
             byte[] content = response.asByteArray();
             return new StoredObjectContent(content, contentType, content.length);
+        } catch (S3Exception | SdkClientException exception) {
+            throw new ObjectStorageException("对象存储读取失败", exception);
+        }
+    }
+
+    /** 打开对象流，避免下载大附件时将完整文件读入 JVM 堆。 */
+    @Override
+    public StoredObjectStream open(String objectKey) {
+        try {
+            ResponseInputStream<GetObjectResponse> response = s3Client.getObject(GetObjectRequest.builder()
+                    .bucket(properties.getBucket())
+                    .key(objectKey)
+                    .build());
+            return new StoredObjectStream(response, response.response().contentType(), response.response().contentLength());
         } catch (S3Exception | SdkClientException exception) {
             throw new ObjectStorageException("对象存储读取失败", exception);
         }

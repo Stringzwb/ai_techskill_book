@@ -40,9 +40,9 @@ spring:
   servlet:
     multipart:
       # 单文件最大体积。
-      max-file-size: ${MULTIPART_MAX_FILE_SIZE:5MB}
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:300MB}
       # 单次 multipart 请求最大体积。
-      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:6MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:310MB}
   # Flyway 数据库迁移配置。
   flyway:
     enabled: true
@@ -154,3 +154,7 @@ app:
     environment: ${STORAGE_ENVIRONMENT:local}
     # S3 兼容服务是否使用 Path Style 地址。
     path-style: ${STORAGE_PATH_STYLE:true}
+  community:
+    attachment-max-size: ${COMMUNITY_ATTACHMENT_MAX_SIZE:300MB}
+    image-max-size: ${COMMUNITY_IMAGE_MAX_SIZE:20MB}
+    preview-max-size: ${COMMUNITY_PREVIEW_MAX_SIZE:20MB}

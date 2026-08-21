@@ -3,6 +3,8 @@ package com.aitechskill.book.storage.service;
 import com.aitechskill.book.storage.domain.StorageObjectRequest;
 import com.aitechskill.book.storage.domain.StoredObject;
 import com.aitechskill.book.storage.domain.StoredObjectContent;
+import com.aitechskill.book.storage.domain.StoredObjectStream;
+import com.aitechskill.book.storage.domain.StorageObjectStreamRequest;
 import com.aitechskill.book.storage.exception.ObjectStorageException;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -20,9 +22,17 @@ public class DisabledObjectStorageService implements ObjectStorageService {
         throw unavailable();
     }
 
+    @Override
+    public StoredObject putStream(StorageObjectStreamRequest request) { throw unavailable(); }
+
     /** 拒绝未配置环境的读取。 */
     @Override
     public StoredObjectContent get(String objectKey) {
+        throw unavailable();
+    }
+
+    @Override
+    public StoredObjectStream open(String objectKey) {
         throw unavailable();
     }
 
