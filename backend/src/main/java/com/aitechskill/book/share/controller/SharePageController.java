@@ -14,7 +14,6 @@ import java.io.IOException;
 import javax.imageio.ImageIO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -109,7 +108,7 @@ public class SharePageController {
                 escape(targetUrl), javascriptString(targetUrl));
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noCache())
-                .header(HttpHeaders.X_ROBOTS_TAG, "noindex")
+                .header("X-Robots-Tag", "noindex")
                 .body(html);
     }
 
