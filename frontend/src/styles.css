@@ -218,6 +218,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .reader-header p { max-width: 700px; margin: 0; color: var(--muted); font-size: 16px; line-height: 1.8; }
 .reader-meta { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 18px; color: var(--subtle); font-size: 12px; }
 .reader-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.share-trigger { min-height: 40px; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; transition: color .18s ease, border-color .18s ease, background .18s ease; }
+.share-trigger:hover { color: var(--primary); border-color: color-mix(in srgb, var(--primary) 44%, var(--border)); background: var(--primary-soft); }
 .reader-content { padding: 46px 24px 90px; }
 .reader-state { min-height: calc(100vh - 150px); padding: 30px; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; color: var(--muted); }
 .reader-state--error strong { color: var(--danger); }
@@ -309,6 +311,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .share-reset { min-height: 34px; padding: 0 5px; color: var(--muted); border: 0; background: transparent; font-size: 12px; white-space: nowrap; }
 .share-reset:hover:not(:disabled) { color: var(--primary); }
 .share-layout { display: grid; grid-template-columns: minmax(255px, .72fr) minmax(0, 1.7fr); gap: 34px; align-items: start; }
+.share-layout--single { grid-template-columns: minmax(0, 790px); justify-content: center; }
+.share-layout--single .share-filter { display: none; }
 .share-filter { position: sticky; top: 98px; }
 .share-feed { min-width: 0; display: grid; gap: 15px; }
 .share-error { padding: 12px 14px; color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); border-radius: 7px; background: var(--danger-soft); font-size: 13px; }
@@ -354,6 +358,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .share-card__footer { min-height: 46px; padding: 0 22px; display: flex; align-items: center; border-top: 1px solid var(--border); }
 .share-card__footer button { padding: 5px 0; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); border: 0; background: transparent; font-size: 12px; }
 .share-card__footer button:hover { color: var(--primary); }
+.share-card__footer .share-trigger { min-height: 40px; margin-left: 18px; padding: 7px 9px; }
 .share-comments { padding: 17px 22px 22px; border-top: 1px solid var(--border); background: var(--surface-soft); }
 .comment-compose { display: flex; align-items: end; gap: 8px; }
 .comment-compose textarea { width: 100%; min-height: 62px; padding: 9px 10px; color: var(--text); border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font: inherit; font-size: 13px; line-height: 1.55; resize: vertical; }
@@ -469,6 +474,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .document-result-item footer { align-items: flex-start; flex-direction: column; }
   .reader-header { padding: 40px 20px 35px; }
   .reader-header h1 { font-size: 32px; }
+  .reader-meta { gap: 10px; }
+  .reader-meta .share-trigger { width: 100%; justify-content: flex-start; }
   .reader-content { padding: 35px 20px 68px; }
   .markdown-body { font-size: 15px; }
   .markdown-body h1 { font-size: 25px; }
@@ -492,6 +499,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .share-composer > form > footer .primary-button { width: 100%; }
   .share-images { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .share-card > header, .share-card__body, .share-card__footer, .share-comments { padding-left: 15px; padding-right: 15px; }
+  .share-card__footer { justify-content: space-between; gap: 10px; }
+  .share-card__footer .share-trigger { margin-left: 0; }
   .share-files > div { align-items: start; flex-wrap: wrap; }
   .share-files > div > span { width: calc(100% - 32px); }
   .share-files > div > a, .share-files > div > button { margin-left: 30px; }

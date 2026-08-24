@@ -68,6 +68,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         String path = request.getRequestURI();
         return "/api/community/posts".equals(path)
+                || path.matches("/api/community/posts/[0-9]+")
                 || path.matches("/api/community/posts/[0-9]+/comments")
                 || path.matches("/api/community/attachments/[0-9]+/(content|preview)");
     }

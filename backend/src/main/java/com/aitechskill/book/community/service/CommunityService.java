@@ -158,6 +158,12 @@ public class CommunityService {
                 rows.stream().map(post -> toResponse(post, viewerId)).toList());
     }
 
+    /** 读取一张公开分享卡片，供固定链接与微信分享落地页使用。 */
+    @Transactional(readOnly = true)
+    public CommunityPostResponse get(long postId, long viewerId) {
+        return toResponse(requirePost(postId), viewerId);
+    }
+
     @Transactional
     public CommunityPostResponse create(CommunityPostCreateRequest request, long userId) {
         String type = request.postType().trim().toUpperCase(Locale.ROOT);

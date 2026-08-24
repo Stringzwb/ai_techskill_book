@@ -158,3 +158,6 @@ app:
     attachment-max-size: ${COMMUNITY_ATTACHMENT_MAX_SIZE:300MB}
     image-max-size: ${COMMUNITY_IMAGE_MAX_SIZE:20MB}
     preview-max-size: ${COMMUNITY_PREVIEW_MAX_SIZE:20MB}
+  # 微信等外部平台抓取分享信息时使用的公开站点地址。
+  share:
+    public-base-url: ${PUBLIC_BASE_URL:https://38.22.90.174}
