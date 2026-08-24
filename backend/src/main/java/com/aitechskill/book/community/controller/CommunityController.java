@@ -22,7 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class CommunityController {
  private final CommunityService service;
  public CommunityController(CommunityService service){this.service=service;}
- @GetMapping("/posts") public CommunityPostPageResponse list(@RequestParam(required=false) String keyword,@RequestParam(required=false) Long tagId,@RequestParam(required=false) String postType,@RequestParam(defaultValue="1") int page,@RequestParam(defaultValue="12") int size){return service.list(keyword,tagId,postType,page,size,UserContextHolder.requireUserId());}
+ @GetMapping("/posts") public CommunityPostPageResponse list(@RequestParam(required=false) String keyword,@RequestParam(required=false) Long tagId,@RequestParam(required=false) String postType,@RequestParam(defaultValue="1") int page,@RequestParam(defaultValue="12") int size){return service.list(keyword,tagId,postType,page,size,UserContextHolder.currentUserId().orElse(0L));}
  @PostMapping("/posts") public CommunityPostResponse create(@Valid @RequestBody CommunityPostCreateRequest request){return service.create(request,UserContextHolder.requireUserId());}
  @PostMapping(value="/posts/{id}/attachments",consumes=MediaType.MULTIPART_FORM_DATA_VALUE) public CommunityPostResponse upload(@PathVariable long id,@RequestPart("file") MultipartFile file){return service.upload(id,file,UserContextHolder.requireUserId());}
  @GetMapping("/posts/{id}/comments") public List<CommunityCommentResponse> comments(@PathVariable long id){return service.getComments(id);}

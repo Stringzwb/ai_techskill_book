@@ -42,6 +42,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (HttpMethod.OPTIONS.matches(request.getMethod())) {
             return true;
         }
+        if (isPublicCommunityRead(request)) {
+            return true;
+        }
         String token = tokenService.resolveToken(request).orElseThrow(() ->
                 new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "请先登录"));
         SessionRecord session = sessionService.requireSession(token);
@@ -56,6 +59,17 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         UserContextHolder.setUserId(user.getId());
         return true;
+    }
+
+    /** 分享库的列表、评论读取和附件读取公开，所有写操作仍需会话。 */
+    private boolean isPublicCommunityRead(HttpServletRequest request) {
+        if (!HttpMethod.GET.matches(request.getMethod())) {
+            return false;
+        }
+        String path = request.getRequestURI();
+        return "/api/community/posts".equals(path)
+                || path.matches("/api/community/posts/[0-9]+/comments")
+                || path.matches("/api/community/attachments/[0-9]+/(content|preview)");
     }
 
     /**
