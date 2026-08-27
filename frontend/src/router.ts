@@ -11,6 +11,8 @@ const router = createRouter({
     { path: '/library', name: 'library', component: () => import('./views/LibraryView.vue') },
     { path: '/documents', name: 'documents', component: () => import('./views/DocumentLibraryView.vue') },
     { path: '/documents/:id', name: 'document-reader', component: () => import('./views/DocumentReaderView.vue') },
+    { path: '/tech-english', name: 'tech-english', component: () => import('./views/TechEnglishView.vue') },
+    { path: '/tech-english/:id', name: 'tech-english-reader', component: () => import('./views/TechEnglishReaderView.vue') },
     { path: '/paths', name: 'paths', component: () => import('./views/PathsView.vue'), meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { requiresAuth: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },

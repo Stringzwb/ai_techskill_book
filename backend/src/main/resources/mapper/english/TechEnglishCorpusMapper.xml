@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aitechskill.book.english.mapper.TechEnglishCorpusMapper">
+    <sql id="publishedFilter">
+        corpus.deleted = 0
+        AND corpus.status = 'PUBLISHED'
+        <if test="keyword != null and keyword != ''">
+            AND (corpus.title LIKE CONCAT('%', #{keyword}, '%')
+                 OR corpus.english_text LIKE CONCAT('%', #{keyword}, '%')
+                 OR corpus.explanation LIKE CONCAT('%', #{keyword}, '%')
+                 OR corpus.tags LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="corpusType != null and corpusType != ''">
+            AND corpus.corpus_type = #{corpusType}
+        </if>
+        <if test="tagId != null">
+            AND EXISTS (
+                SELECT 1
+                FROM tech_english_corpus_tag AS filter_link
+                INNER JOIN knowledge_tag AS bound_tag
+                    ON bound_tag.id = filter_link.tag_id AND bound_tag.deleted = 0
+                INNER JOIN knowledge_tag AS scope_tag
+                    ON scope_tag.id = #{tagId} AND scope_tag.deleted = 0
+                WHERE filter_link.corpus_id = corpus.id
+                  AND filter_link.deleted = 0
+                  AND bound_tag.tag_path LIKE CONCAT(scope_tag.tag_path, '%')
+            )
+        </if>
+    </sql>
+
+    <select id="selectPublishedPage" resultType="com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity">
+        SELECT corpus.*
+        FROM tech_english_corpus AS corpus
+        WHERE <include refid="publishedFilter"/>
+        ORDER BY corpus.published_at DESC, corpus.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countPublished" resultType="long">
+        SELECT COUNT(*)
+        FROM tech_english_corpus AS corpus
+        WHERE <include refid="publishedFilter"/>
+    </select>
+
+    <select id="selectPublishedById" resultType="com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity">
+        SELECT corpus.*
+        FROM tech_english_corpus AS corpus
+        WHERE corpus.id = #{id}
+          AND corpus.deleted = 0
+          AND corpus.status = 'PUBLISHED'
+        LIMIT 1
+    </select>
+
+    <select id="selectTagsByCorpusIds" resultType="com.aitechskill.book.document.domain.DocumentTagRecord">
+        SELECT link.corpus_id AS documentId,
+               tag.id,
+               tag.name,
+               tag.level
+        FROM tech_english_corpus_tag AS link
+        INNER JOIN knowledge_tag AS tag ON tag.id = link.tag_id AND tag.deleted = 0
+        WHERE link.deleted = 0
+          AND link.corpus_id IN
+        <foreach collection="corpusIds" item="corpusId" open="(" separator="," close=")">
+            #{corpusId}
+        </foreach>
+        ORDER BY tag.level ASC, tag.sort_order ASC, tag.id ASC
+    </select>
+</mapper>

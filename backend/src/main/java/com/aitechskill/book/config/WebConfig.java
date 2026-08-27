@@ -62,6 +62,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/auth/logout",
                         "/api/auth/wechat/status",
                         "/api/documents",
-                        "/api/documents/**");
+                        "/api/documents/**",
+                        "/api/tech-english/corpus",
+                        "/api/tech-english/corpus/**");
     }
 }

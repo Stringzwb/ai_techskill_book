@@ -100,6 +100,47 @@ export interface DocumentDetail extends DocumentSummary {
   updatedAt: string
 }
 
+/** 技术英语语料类型。 */
+export type TechEnglishCorpusType = 'VOCABULARY' | 'SENTENCE' | 'IMAGE' | 'ARTICLE'
+
+/** 技术英语语料难度。 */
+export type TechEnglishDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
+
+/** 技术英语语料列表项。 */
+export interface TechEnglishCorpusSummary {
+  id: number
+  corpusType: TechEnglishCorpusType
+  title: string
+  englishText: string | null
+  phonetic: string | null
+  explanation: string | null
+  imageUrl: string | null
+  imageAlt: string | null
+  scenario: string | null
+  difficulty: TechEnglishDifficulty
+  tags: string | null
+  translationText: string | null
+  publishedAt: string | null
+  knowledgeTags: DocumentTag[]
+}
+
+/** 技术英语语料分页响应。 */
+export interface TechEnglishCorpusPage {
+  total: number
+  page: number
+  size: number
+  totalPages: number
+  items: TechEnglishCorpusSummary[]
+}
+
+/** 技术英语语料详情。 */
+export interface TechEnglishCorpusDetail extends TechEnglishCorpusSummary {
+  articleMarkdown: string | null
+  sourceName: string | null
+  sourceUrl: string | null
+  updatedAt: string
+}
+
 export type CommunityPostType = 'QUESTION' | 'IMAGE' | 'LINK' | 'FILE' | 'VOTE'
 export interface CommunityTag { id: number; name: string; level: 1 | 2 | 3 }
 export interface CommunityAuthor { id: number; username: string; avatarUrl: string }

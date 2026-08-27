@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { FileText, LogIn, LogOut, Menu, Moon, Share2, Sun, TerminalSquare, X } from '@lucide/vue'
+import { BookOpenText, FileText, LogIn, LogOut, Menu, Moon, Share2, Sun, TerminalSquare, X } from '@lucide/vue'
 import { authStore } from '../stores/auth'
 import { themeStore } from '../stores/theme'
 
@@ -40,6 +40,7 @@ async function handleLogout() {
           <RouterLink to="/" @click="closeMenu">首页</RouterLink>
           <RouterLink to="/library" @click="closeMenu"><Share2 :size="15" />分享库</RouterLink>
           <RouterLink to="/documents" @click="closeMenu"><FileText :size="15" />文档库</RouterLink>
+          <RouterLink to="/tech-english" @click="closeMenu"><BookOpenText :size="15" />技术英语</RouterLink>
           <RouterLink to="/paths" @click="closeMenu">成长路径</RouterLink>
           <RouterLink to="/profile" @click="closeMenu">个人中心</RouterLink>
         </nav>
