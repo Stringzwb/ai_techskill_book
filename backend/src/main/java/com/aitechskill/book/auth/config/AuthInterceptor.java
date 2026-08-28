@@ -83,7 +83,8 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
         String path = request.getRequestURI();
         return "/api/tech-english/corpus".equals(path)
-                || path.matches("/api/tech-english/corpus/[0-9]+");
+                || path.matches("/api/tech-english/corpus/[0-9]+")
+                || path.matches("/api/tech-english/corpus/[0-9]+/image");
     }
 
     /**

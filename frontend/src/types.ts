@@ -149,7 +149,7 @@ export interface TechEnglishCorpusCreatePayload {
   phonetic?: string
   explanation?: string
   articleMarkdown?: string
-  imageUrl?: string
+  imageFile?: File | null
   imageAlt?: string
   sourceName?: string
   sourceUrl?: string

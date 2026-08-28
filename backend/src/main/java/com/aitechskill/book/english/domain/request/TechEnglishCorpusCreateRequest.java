@@ -17,7 +17,6 @@ public record TechEnglishCorpusCreateRequest(
         @Size(max = 120) String phonetic,
         @Size(max = 1000) String explanation,
         @Size(max = 50000) String articleMarkdown,
-        @Size(max = 2048) String imageUrl,
         @Size(max = 300) String imageAlt,
         @Size(max = 120) String sourceName,
         @Size(max = 2048) String sourceUrl,

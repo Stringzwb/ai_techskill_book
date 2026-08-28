@@ -25,8 +25,23 @@ export function fetchTechEnglishCorpusDetail(id: number): Promise<TechEnglishCor
 
 /** 从主站轻量收录并发布技术英语语料。 */
 export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload): Promise<TechEnglishCorpusDetail> {
+  const body = new FormData()
+  body.append('corpusType', payload.corpusType)
+  body.append('title', payload.title)
+  if (payload.englishText) body.append('englishText', payload.englishText)
+  if (payload.phonetic) body.append('phonetic', payload.phonetic)
+  if (payload.explanation) body.append('explanation', payload.explanation)
+  if (payload.articleMarkdown) body.append('articleMarkdown', payload.articleMarkdown)
+  if (payload.imageFile) body.append('imageFile', payload.imageFile)
+  if (payload.imageAlt) body.append('imageAlt', payload.imageAlt)
+  if (payload.sourceName) body.append('sourceName', payload.sourceName)
+  if (payload.sourceUrl) body.append('sourceUrl', payload.sourceUrl)
+  if (payload.scenario) body.append('scenario', payload.scenario)
+  if (payload.difficulty) body.append('difficulty', payload.difficulty)
+  if (payload.translationText) body.append('translationText', payload.translationText)
+  payload.tagIds.forEach((tagId) => body.append('tagIds', String(tagId)))
   return apiRequest<TechEnglishCorpusDetail>('/api/tech-english/corpus', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body,
   })
 }

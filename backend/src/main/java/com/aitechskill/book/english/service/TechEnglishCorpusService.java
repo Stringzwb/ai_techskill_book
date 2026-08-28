@@ -3,6 +3,7 @@ package com.aitechskill.book.english.service;
 import com.aitechskill.book.common.exception.BusinessException;
 import com.aitechskill.book.document.domain.DocumentTagRecord;
 import com.aitechskill.book.document.domain.response.DocumentTagResponse;
+import com.aitechskill.book.english.domain.TechEnglishImageContent;
 import com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity;
 import com.aitechskill.book.english.domain.request.TechEnglishCorpusCreateRequest;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
@@ -22,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 主平台技术英语语料检索与阅读服务。
@@ -33,9 +35,13 @@ public class TechEnglishCorpusService {
     private static final int MAX_PAGE_SIZE = 50;
 
     private final TechEnglishCorpusMapper corpusMapper;
+    private final TechEnglishImageStorageService imageStorageService;
 
-    public TechEnglishCorpusService(TechEnglishCorpusMapper corpusMapper) {
+    public TechEnglishCorpusService(
+            TechEnglishCorpusMapper corpusMapper,
+            TechEnglishImageStorageService imageStorageService) {
         this.corpusMapper = corpusMapper;
+        this.imageStorageService = imageStorageService;
     }
 
     /** 查询已发布语料并附加知识标签摘要。 */
@@ -76,20 +82,24 @@ public class TechEnglishCorpusService {
 
     /** 从主平台轻表单直接收录并发布技术英语语料。 */
     @Transactional
-    public TechEnglishCorpusDetailResponse create(TechEnglishCorpusCreateRequest request, long userId) {
+    public TechEnglishCorpusDetailResponse create(TechEnglishCorpusCreateRequest request, MultipartFile imageFile, long userId) {
         String corpusType = normalizeOptionalType(request.corpusType());
         String difficulty = normalizeDifficulty(request.difficulty());
+        validateTextLengths(request);
         List<Long> tagIds = validateTagIds(request.tagIds());
-        validateTypeContent(corpusType, request);
+        validateTypeContent(corpusType, request, imageFile);
+        String corpusUuid = UUID.randomUUID().toString();
+        var storedImage = "IMAGE".equals(corpusType) ? imageStorageService.save(userId, imageFile) : null;
         TechEnglishCorpusEntity corpus = new TechEnglishCorpusEntity();
-        corpus.setCorpusUuid(UUID.randomUUID().toString());
+        corpus.setCorpusUuid(corpusUuid);
         corpus.setCorpusType(corpusType);
         corpus.setTitle(trimToNull(request.title()));
         corpus.setEnglishText(trimToNull(request.englishText()));
         corpus.setPhonetic(trimToNull(request.phonetic()));
         corpus.setExplanation(trimToNull(request.explanation()));
         corpus.setArticleMarkdown(trimToNull(request.articleMarkdown()));
-        corpus.setImageUrl(trimToNull(request.imageUrl()));
+        corpus.setImageUrl(null);
+        corpus.setImageObjectKey(storedImage == null ? null : storedImage.objectKey());
         corpus.setImageAlt(trimToNull(request.imageAlt()));
         corpus.setSourceName(trimToNull(request.sourceName()));
         corpus.setSourceUrl(trimToNull(request.sourceUrl()));
@@ -108,6 +118,16 @@ public class TechEnglishCorpusService {
         corpusMapper.insertTagLinks(corpus.getId(), tagIds);
         List<DocumentTagResponse> tags = loadTags(List.of(corpus)).getOrDefault(corpus.getId(), List.of());
         return toDetail(corpus, tags);
+    }
+
+    /** 读取已发布图片语料文件。 */
+    @Transactional(readOnly = true)
+    public TechEnglishImageContent getPublishedImage(long id) {
+        TechEnglishCorpusEntity corpus = corpusMapper.selectPublishedById(id);
+        if (corpus == null || !"IMAGE".equals(corpus.getCorpusType()) || !StringUtils.hasText(corpus.getImageObjectKey())) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "TECH_ENGLISH_IMAGE_NOT_FOUND", "图片语料不存在");
+        }
+        return imageStorageService.open(corpus.getImageObjectKey());
     }
 
     /** 批量加载并按语料主键分组知识标签。 */
@@ -139,6 +159,34 @@ public class TechEnglishCorpusService {
         return normalized;
     }
 
+    /** 校验主站轻表单字段长度和标题必填。 */
+    private void validateTextLengths(TechEnglishCorpusCreateRequest request) {
+        requireText(request.title(), 160, "TECH_ENGLISH_TITLE_REQUIRED", "请填写 160 字以内的标题");
+        checkLength(request.englishText(), 20_000, "英文内容不能超过 20000 字");
+        checkLength(request.phonetic(), 120, "发音提示不能超过 120 字");
+        checkLength(request.explanation(), 1000, "说明不能超过 1000 字");
+        checkLength(request.articleMarkdown(), 50_000, "文章正文不能超过 50000 字");
+        checkLength(request.imageAlt(), 300, "图片说明不能超过 300 字");
+        checkLength(request.sourceName(), 120, "来源名称不能超过 120 字");
+        checkLength(request.sourceUrl(), 2048, "来源链接不能超过 2048 字");
+        checkLength(request.scenario(), 80, "场景不能超过 80 字");
+        checkLength(request.translationText(), 5000, "中文参考不能超过 5000 字");
+    }
+
+    /** 校验必填文本。 */
+    private void requireText(String value, int maxLength, String code, String message) {
+        if (!StringUtils.hasText(value) || value.trim().length() > maxLength) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, code, message);
+        }
+    }
+
+    /** 校验可选文本长度。 */
+    private void checkLength(String value, int maxLength, String message) {
+        if (value != null && value.trim().length() > maxLength) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_FIELD_TOO_LONG", message);
+        }
+    }
+
     /** 规范化难度，主站未填写时采用中级。 */
     private String normalizeDifficulty(String value) {
         if (!StringUtils.hasText(value)) {
@@ -167,13 +215,17 @@ public class TechEnglishCorpusService {
     }
 
     /** 按语料类型校验主站轻表单的必要内容。 */
-    private void validateTypeContent(String corpusType, TechEnglishCorpusCreateRequest request) {
+    private void validateTypeContent(String corpusType, TechEnglishCorpusCreateRequest request, MultipartFile imageFile) {
         if (("VOCABULARY".equals(corpusType) || "SENTENCE".equals(corpusType))
                 && !StringUtils.hasText(request.englishText())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_CONTENT_REQUIRED", "请填写英文内容");
         }
         if ("IMAGE".equals(corpusType)) {
-            requireHttpUrl(request.imageUrl(), "TECH_ENGLISH_IMAGE_URL_INVALID", "请填写有效的图片链接");
+            if (imageFile == null || imageFile.isEmpty()) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_IMAGE_REQUIRED", "请上传图片文件");
+            }
+        } else if (imageFile != null && !imageFile.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_IMAGE_UNEXPECTED", "只有图片语料可以上传图片文件");
         }
         if ("ARTICLE".equals(corpusType)
                 && !StringUtils.hasText(request.articleMarkdown())
@@ -182,9 +234,6 @@ public class TechEnglishCorpusService {
         }
         if (StringUtils.hasText(request.sourceUrl())) {
             requireHttpUrl(request.sourceUrl(), "TECH_ENGLISH_SOURCE_URL_INVALID", "请填写有效的来源链接");
-        }
-        if (StringUtils.hasText(request.imageUrl())) {
-            requireHttpUrl(request.imageUrl(), "TECH_ENGLISH_IMAGE_URL_INVALID", "请填写有效的图片链接");
         }
     }
 
@@ -221,7 +270,7 @@ public class TechEnglishCorpusService {
                 corpus.getEnglishText(),
                 corpus.getPhonetic(),
                 corpus.getExplanation(),
-                corpus.getImageUrl(),
+                imageUrl(corpus),
                 corpus.getImageAlt(),
                 corpus.getScenario(),
                 corpus.getDifficulty(),
@@ -243,7 +292,7 @@ public class TechEnglishCorpusService {
                 corpus.getPhonetic(),
                 corpus.getExplanation(),
                 corpus.getArticleMarkdown(),
-                corpus.getImageUrl(),
+                imageUrl(corpus),
                 corpus.getImageAlt(),
                 corpus.getSourceName(),
                 corpus.getSourceUrl(),
@@ -254,5 +303,13 @@ public class TechEnglishCorpusService {
                 corpus.getPublishedAt(),
                 corpus.getUpdatetime(),
                 tags);
+    }
+
+    /** 返回前端可直接访问的图片地址。 */
+    private String imageUrl(TechEnglishCorpusEntity corpus) {
+        if (StringUtils.hasText(corpus.getImageObjectKey())) {
+            return "/api/tech-english/corpus/" + corpus.getId() + "/image";
+        }
+        return corpus.getImageUrl();
     }
 }

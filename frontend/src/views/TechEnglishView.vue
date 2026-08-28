@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ArrowRight, BookOpenText, FileSearch, FileText, Image, Languages, LogIn, Plus, RotateCcw, Search, Send, Type, X } from '@lucide/vue'
+import { ArrowRight, BookOpenText, FileSearch, FileText, Image, Languages, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Type, UploadCloud, X } from '@lucide/vue'
 import KnowledgeTagSelector from '../components/KnowledgeTagSelector.vue'
 import { createTechEnglishCorpus, fetchTechEnglishCorpus } from '../services/techEnglish'
 import { authStore } from '../stores/auth'
@@ -20,6 +20,7 @@ const submitMessage = ref('')
 const submitError = ref('')
 const createSelectorKey = ref(0)
 const createSelection = ref<KnowledgeTagSelection>({ module: null, secondary: null, tertiary: null })
+const imageInput = ref<HTMLInputElement | null>(null)
 const form = reactive<TechEnglishCorpusCreatePayload>({
   corpusType: 'VOCABULARY',
   title: '',
@@ -27,7 +28,7 @@ const form = reactive<TechEnglishCorpusCreatePayload>({
   phonetic: '',
   explanation: '',
   articleMarkdown: '',
-  imageUrl: '',
+  imageFile: null,
   imageAlt: '',
   sourceName: '',
   sourceUrl: '',
@@ -50,6 +51,7 @@ const selectionLabel = computed(() => [
   selection.value.secondary?.name,
   selection.value.tertiary?.name,
 ].filter(Boolean).join(' / '))
+const imageFileName = computed(() => form.imageFile?.name ?? '')
 const createSelectionLabel = computed(() => [
   createSelection.value.module?.name,
   createSelection.value.secondary?.name,
@@ -127,7 +129,7 @@ function resetCreateForm(): void {
   form.phonetic = ''
   form.explanation = ''
   form.articleMarkdown = ''
-  form.imageUrl = ''
+  form.imageFile = null
   form.imageAlt = ''
   form.sourceName = ''
   form.sourceUrl = ''
@@ -137,6 +139,7 @@ function resetCreateForm(): void {
   form.tagIds = []
   createSelection.value = { module: null, secondary: null, tertiary: null }
   createSelectorKey.value += 1
+  if (imageInput.value) imageInput.value.value = ''
 }
 
 /** 切换收录表单语料类型，并清空类型专属输入。 */
@@ -145,10 +148,11 @@ function setCreateType(nextType: TechEnglishCorpusType): void {
   form.englishText = ''
   form.phonetic = ''
   form.articleMarkdown = ''
-  form.imageUrl = ''
+  form.imageFile = null
   form.imageAlt = ''
   form.sourceName = ''
   form.sourceUrl = ''
+  if (imageInput.value) imageInput.value.value = ''
 }
 
 /** 收录表单的知识标签选择只绑定最深一级。 */
@@ -165,6 +169,12 @@ function openCreateForm(): void {
   showComposer.value = true
 }
 
+/** 接收图片语料文件。 */
+function chooseImage(event: Event): void {
+  const file = (event.target as HTMLInputElement).files?.[0] ?? null
+  form.imageFile = file
+}
+
 /** 提交主站轻收录语料。 */
 async function submitCorpus(): Promise<void> {
   submitError.value = ''
@@ -177,8 +187,8 @@ async function submitCorpus(): Promise<void> {
     submitError.value = '请填写英文内容'
     return
   }
-  if (form.corpusType === 'IMAGE' && !form.imageUrl?.trim()) {
-    submitError.value = '请填写图片链接'
+  if (form.corpusType === 'IMAGE' && !form.imageFile) {
+    submitError.value = '请上传图片文件'
     return
   }
   if (form.corpusType === 'ARTICLE' && !form.articleMarkdown?.trim() && !form.sourceUrl?.trim()) {
@@ -206,15 +216,15 @@ onMounted(() => loadCorpus())
 </script>
 
 <template>
-  <section class="inner-page content-width tech-english-library-page">
-    <header class="document-library-heading">
-      <div>
+  <section class="tech-english-page content-width">
+    <header class="tech-english-hero">
+      <div class="tech-english-hero__copy">
         <span>TECHNICAL ENGLISH</span>
-        <h1>技术英语</h1>
-        <p>按技术主题积累英文词汇、语句、图片语境和文章材料。</p>
+        <h1>技术英语语料库</h1>
+        <p>词汇、句子、图片语境和英语文章统一沉淀到知识标签树。</p>
       </div>
       <div class="tech-english-heading-actions">
-        <div class="document-count"><strong>{{ result.total }}</strong><span>条已发布语料</span></div>
+        <div class="tech-english-stat"><strong>{{ result.total }}</strong><span>已发布</span></div>
         <button v-if="authStore.state.user" class="primary-button" type="button" @click="openCreateForm">
           <Plus :size="18" />添加语料
         </button>
@@ -266,8 +276,12 @@ onMounted(() => loadCorpus())
               </label>
             </template>
             <template v-if="form.corpusType === 'IMAGE'">
-              <label>图片链接
-                <input v-model.trim="form.imageUrl" type="url" maxlength="2048" required placeholder="https://example.com/image.png" />
+              <label>图片文件
+                <button class="tech-english-upload" type="button" @click="imageInput?.click()">
+                  <UploadCloud :size="18" />
+                  <span>{{ imageFileName || '选择 JPG、PNG、GIF 或 WebP 图片' }}</span>
+                </button>
+                <input ref="imageInput" class="avatar-file-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp" @change="chooseImage" />
               </label>
               <label>图片说明
                 <textarea v-model="form.imageAlt" maxlength="300" placeholder="说明图片中的技术语境"></textarea>
@@ -304,21 +318,26 @@ onMounted(() => loadCorpus())
 
     <p v-if="submitMessage" class="share-message">{{ submitMessage }}</p>
 
-    <form class="document-searchbar" role="search" @submit.prevent="searchCorpus">
-      <Search :size="19" />
-      <input v-model="keyword" type="search" maxlength="100" placeholder="搜索英文、标题、说明或标签" aria-label="搜索技术英语语料" />
-      <button class="primary-button" type="submit">搜索</button>
-    </form>
-
-    <section class="tech-english-type-filter" aria-label="语料类型">
-      <button v-for="item in corpusTypes" :key="item.value" type="button" :class="{ active: corpusType === item.value }" @click="toggleType(item.value)">
-        <component :is="item.icon" :size="17" />
-        <span>{{ item.label }}</span>
-      </button>
+    <section class="tech-english-command">
+      <form class="tech-english-search" role="search" @submit.prevent="searchCorpus">
+        <Search :size="19" />
+        <input v-model="keyword" type="search" maxlength="100" placeholder="搜索英文、标题、说明或标签" aria-label="搜索技术英语语料" />
+        <button class="primary-button" type="submit">搜索</button>
+      </form>
+      <div class="tech-english-type-filter" aria-label="语料类型">
+        <button v-for="item in corpusTypes" :key="item.value" type="button" :class="{ active: corpusType === item.value }" @click="toggleType(item.value)">
+          <component :is="item.icon" :size="17" />
+          <span>{{ item.label }}</span>
+        </button>
+      </div>
     </section>
 
-    <div class="document-library-layout">
-      <aside class="document-filter-panel">
+    <div class="tech-english-workspace">
+      <aside class="tech-english-sidebar">
+        <div class="tech-english-sidebar__title">
+          <SlidersHorizontal :size="16" />
+          <span>筛选</span>
+        </div>
         <KnowledgeTagSelector :key="selectorKey" @change="updateSelection" />
         <div class="active-filter">
           <small>当前范围</small>
@@ -327,8 +346,8 @@ onMounted(() => loadCorpus())
         <button class="filter-reset" type="button" @click="resetFilters"><RotateCcw :size="15" />重置筛选</button>
       </aside>
 
-      <main class="document-results" aria-live="polite">
-        <header>
+      <main class="tech-english-results" aria-live="polite">
+        <header class="tech-english-results__header">
           <div><span>ENGLISH CORPUS</span><h2>{{ submittedKeyword ? `“${submittedKeyword}”的结果` : '最新语料' }}</h2></div>
           <small v-if="!loading">{{ corpusType ? typeLabel(corpusType) : activeTag ? activeTag.name : '全部语料' }}</small>
         </header>
