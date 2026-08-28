@@ -45,6 +45,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (isPublicCommunityRead(request)) {
             return true;
         }
+        if (isPublicTechEnglishRead(request)) {
+            return true;
+        }
         String token = tokenService.resolveToken(request).orElseThrow(() ->
                 new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "请先登录"));
         SessionRecord session = sessionService.requireSession(token);
@@ -71,6 +74,16 @@ public class AuthInterceptor implements HandlerInterceptor {
                 || path.matches("/api/community/posts/[0-9]+")
                 || path.matches("/api/community/posts/[0-9]+/comments")
                 || path.matches("/api/community/attachments/[0-9]+/(content|preview)");
+    }
+
+    /** 技术英语语料的列表和详情公开，主站收录仍需会话。 */
+    private boolean isPublicTechEnglishRead(HttpServletRequest request) {
+        if (!HttpMethod.GET.matches(request.getMethod())) {
+            return false;
+        }
+        String path = request.getRequestURI();
+        return "/api/tech-english/corpus".equals(path)
+                || path.matches("/api/tech-english/corpus/[0-9]+");
     }
 
     /**

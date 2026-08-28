@@ -141,6 +141,24 @@ export interface TechEnglishCorpusDetail extends TechEnglishCorpusSummary {
   updatedAt: string
 }
 
+/** 主站轻量收录技术英语语料。 */
+export interface TechEnglishCorpusCreatePayload {
+  corpusType: TechEnglishCorpusType
+  title: string
+  englishText?: string
+  phonetic?: string
+  explanation?: string
+  articleMarkdown?: string
+  imageUrl?: string
+  imageAlt?: string
+  sourceName?: string
+  sourceUrl?: string
+  scenario?: string
+  difficulty?: TechEnglishDifficulty
+  translationText?: string
+  tagIds: number[]
+}
+
 export type CommunityPostType = 'QUESTION' | 'IMAGE' | 'LINK' | 'FILE' | 'VOTE'
 export interface CommunityTag { id: number; name: string; level: 1 | 2 | 3 }
 export interface CommunityAuthor { id: number; username: string; avatarUrl: string }

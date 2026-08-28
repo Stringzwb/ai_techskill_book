@@ -1,5 +1,5 @@
 import { apiRequest } from './http'
-import type { TechEnglishCorpusDetail, TechEnglishCorpusPage, TechEnglishCorpusType } from '../types'
+import type { TechEnglishCorpusCreatePayload, TechEnglishCorpusDetail, TechEnglishCorpusPage, TechEnglishCorpusType } from '../types'
 
 /** 查询已发布技术英语语料。 */
 export function fetchTechEnglishCorpus(params: {
@@ -21,4 +21,12 @@ export function fetchTechEnglishCorpus(params: {
 /** 读取一条已发布技术英语语料。 */
 export function fetchTechEnglishCorpusDetail(id: number): Promise<TechEnglishCorpusDetail> {
   return apiRequest<TechEnglishCorpusDetail>(`/api/tech-english/corpus/${id}`)
+}
+
+/** 从主站轻量收录并发布技术英语语料。 */
+export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload): Promise<TechEnglishCorpusDetail> {
+  return apiRequest<TechEnglishCorpusDetail>('/api/tech-english/corpus', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }

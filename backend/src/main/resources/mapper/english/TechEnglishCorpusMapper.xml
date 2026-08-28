@@ -51,6 +51,29 @@
         LIMIT 1
     </select>
 
+    <select id="countActiveTags" resultType="long">
+        SELECT COUNT(*)
+        FROM knowledge_tag
+        WHERE deleted = 0
+          AND id IN
+        <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+            #{tagId}
+        </foreach>
+    </select>
+
+    <insert id="insertTagLinks">
+        INSERT INTO tech_english_corpus_tag
+            (corpus_id, tag_id, createby, updateby, deleted)
+        VALUES
+        <foreach collection="tagIds" item="tagId" separator=",">
+            (#{corpusId}, #{tagId}, 0, 0, 0)
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            deleted = 0,
+            updateby = 0,
+            updatetime = CURRENT_TIMESTAMP
+    </insert>
+
     <select id="selectTagsByCorpusIds" resultType="com.aitechskill.book.document.domain.DocumentTagRecord">
         SELECT link.corpus_id AS documentId,
                tag.id,

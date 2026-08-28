@@ -1,10 +1,15 @@
 package com.aitechskill.book.english.controller;
 
+import com.aitechskill.book.auth.utils.UserContextHolder;
+import com.aitechskill.book.english.domain.request.TechEnglishCorpusCreateRequest;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusPageResponse;
 import com.aitechskill.book.english.service.TechEnglishCorpusService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,5 +42,11 @@ public class TechEnglishCorpusController {
     @GetMapping("/{id}")
     public TechEnglishCorpusDetailResponse getCorpus(@PathVariable long id) {
         return corpusService.getPublishedCorpus(id);
+    }
+
+    /** 登录用户从主站轻量收录技术英语语料。 */
+    @PostMapping
+    public TechEnglishCorpusDetailResponse create(@Valid @RequestBody TechEnglishCorpusCreateRequest request) {
+        return corpusService.create(request, UserContextHolder.requireUserId());
     }
 }
