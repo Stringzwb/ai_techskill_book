@@ -9,9 +9,12 @@ import static org.mockito.Mockito.verify;
 import com.aitechskill.book.common.exception.BusinessException;
 import com.aitechskill.book.document.domain.DocumentTagRecord;
 import com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity;
+import com.aitechskill.book.english.domain.entity.TechEnglishVocabularyExampleEntity;
 import com.aitechskill.book.english.domain.request.TechEnglishCorpusCreateRequest;
+import com.aitechskill.book.english.domain.request.TechEnglishVocabularyExampleRequest;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
+import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
 import com.aitechskill.book.storage.domain.StoredObject;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,12 +34,14 @@ class TechEnglishCorpusServiceTest {
     @Mock
     private TechEnglishCorpusMapper corpusMapper;
     @Mock
+    private TechEnglishVocabularyExampleMapper vocabularyExampleMapper;
+    @Mock
     private TechEnglishImageStorageService imageStorageService;
     private TechEnglishCorpusService service;
 
     @BeforeEach
     void setUp() {
-        service = new TechEnglishCorpusService(corpusMapper, imageStorageService);
+        service = new TechEnglishCorpusService(corpusMapper, vocabularyExampleMapper, imageStorageService);
     }
 
     /** 验证主站轻收录会发布语料并绑定知识标签。 */
@@ -65,7 +70,9 @@ class TechEnglishCorpusServiceTest {
                 "backend",
                 "INTERMEDIATE",
                 "幂等",
-                List.of(3L, 3L)), null, 7L);
+                List.of(3L, 3L),
+                List.of(),
+                false), null, 7L);
 
         ArgumentCaptor<TechEnglishCorpusEntity> captor = ArgumentCaptor.forClass(TechEnglishCorpusEntity.class);
         verify(corpusMapper).insert(captor.capture());
@@ -103,7 +110,9 @@ class TechEnglishCorpusServiceTest {
                 "architecture",
                 "ADVANCED",
                 null,
-                List.of(6L)), image, 7L);
+                List.of(6L),
+                List.of(),
+                false), image, 7L);
 
         ArgumentCaptor<TechEnglishCorpusEntity> captor = ArgumentCaptor.forClass(TechEnglishCorpusEntity.class);
         verify(corpusMapper).insert(captor.capture());
@@ -130,8 +139,61 @@ class TechEnglishCorpusServiceTest {
                 null,
                 "BEGINNER",
                 null,
-                List.of(3L)), null, 7L))
+                List.of(3L),
+                List.of(),
+                false), null, 7L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessage("请填写文章正文或文章链接");
+    }
+
+    /** 验证词汇可以省略标题，并将例句同步为句子语料。 */
+    @Test
+    void createsVocabularyExamplesAndOptionalSentenceCorpus() {
+        given(corpusMapper.countActiveTags(List.of(3L))).willReturn(1L);
+        given(corpusMapper.insert(any(TechEnglishCorpusEntity.class))).willAnswer(invocation -> {
+            TechEnglishCorpusEntity corpus = invocation.getArgument(0);
+            corpus.setId("VOCABULARY".equals(corpus.getCorpusType()) ? 31L : 32L);
+            return 1;
+        });
+        given(corpusMapper.insertTagLinks(31L, List.of(3L))).willReturn(1);
+        given(corpusMapper.insertTagLinks(32L, List.of(3L))).willReturn(1);
+        given(vocabularyExampleMapper.insert(any(TechEnglishVocabularyExampleEntity.class))).willAnswer(invocation -> {
+            TechEnglishVocabularyExampleEntity example = invocation.getArgument(0);
+            example.setId(41L);
+            return 1;
+        });
+        given(corpusMapper.selectTagsByCorpusIds(List.of(31L)))
+                .willReturn(List.of(new DocumentTagRecord(31L, 3L, "集合框架", 3)));
+
+        TechEnglishCorpusDetailResponse response = service.create(new TechEnglishCorpusCreateRequest(
+                "VOCABULARY",
+                "",
+                "idempotent",
+                null,
+                "Safe to retry without changing the final result.",
+                null,
+                null,
+                null,
+                null,
+                "backend",
+                "INTERMEDIATE",
+                "幂等",
+                List.of(3L),
+                List.of(new TechEnglishVocabularyExampleRequest(
+                        "A PUT request should be idempotent.",
+                        "PUT 请求应当是幂等的。")),
+                true), null, 7L);
+
+        ArgumentCaptor<TechEnglishCorpusEntity> corpusCaptor = ArgumentCaptor.forClass(TechEnglishCorpusEntity.class);
+        ArgumentCaptor<TechEnglishVocabularyExampleEntity> exampleCaptor = ArgumentCaptor.forClass(TechEnglishVocabularyExampleEntity.class);
+        verify(corpusMapper, org.mockito.Mockito.times(2)).insert(corpusCaptor.capture());
+        verify(vocabularyExampleMapper).insert(exampleCaptor.capture());
+        assertThat(corpusCaptor.getAllValues().get(0).getTitle()).isEqualTo("idempotent");
+        assertThat(corpusCaptor.getAllValues().get(1).getCorpusType()).isEqualTo("SENTENCE");
+        assertThat(exampleCaptor.getValue().getSentenceCorpusId()).isEqualTo(32L);
+        assertThat(response.vocabularyExamples()).singleElement().satisfies(example -> {
+            assertThat(example.englishText()).isEqualTo("A PUT request should be idempotent.");
+            assertThat(example.sentenceCorpusId()).isEqualTo(32L);
+        });
     }
 }

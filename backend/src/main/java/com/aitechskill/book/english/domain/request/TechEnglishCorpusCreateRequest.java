@@ -1,6 +1,5 @@
 package com.aitechskill.book.english.domain.request;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -11,8 +10,8 @@ import java.util.List;
  * 主平台技术英语语料轻收录请求。
  */
 public record TechEnglishCorpusCreateRequest(
-        @NotBlank @Size(max = 20) String corpusType,
-        @NotBlank @Size(max = 160) String title,
+        @NotNull @Size(max = 20) String corpusType,
+        @Size(max = 160) String title,
         @Size(max = 20000) String englishText,
         @Size(max = 120) String phonetic,
         @Size(max = 1000) String explanation,
@@ -23,5 +22,7 @@ public record TechEnglishCorpusCreateRequest(
         @Size(max = 80) String scenario,
         @Size(max = 16) String difficulty,
         @Size(max = 5000) String translationText,
-        @NotNull @NotEmpty @Size(max = 20) List<@Positive Long> tagIds) {
+        @NotNull @NotEmpty @Size(max = 20) List<@Positive Long> tagIds,
+        List<TechEnglishVocabularyExampleRequest> vocabularyExamples,
+        Boolean syncExamplesToSentences) {
 }

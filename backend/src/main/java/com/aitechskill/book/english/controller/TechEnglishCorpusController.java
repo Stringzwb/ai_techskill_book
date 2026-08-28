@@ -3,10 +3,12 @@ package com.aitechskill.book.english.controller;
 import com.aitechskill.book.auth.utils.UserContextHolder;
 import com.aitechskill.book.english.domain.TechEnglishImageContent;
 import com.aitechskill.book.english.domain.request.TechEnglishCorpusCreateRequest;
+import com.aitechskill.book.english.domain.request.TechEnglishVocabularyExampleRequest;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusPageResponse;
 import com.aitechskill.book.english.service.TechEnglishCorpusService;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
@@ -55,7 +57,7 @@ public class TechEnglishCorpusController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public TechEnglishCorpusDetailResponse create(
             @RequestParam String corpusType,
-            @RequestParam String title,
+            @RequestParam(required = false) String title,
             @RequestParam(required = false) String englishText,
             @RequestParam(required = false) String phonetic,
             @RequestParam(required = false) String explanation,
@@ -67,6 +69,9 @@ public class TechEnglishCorpusController {
             @RequestParam(required = false) String difficulty,
             @RequestParam(required = false) String translationText,
             @RequestParam List<Long> tagIds,
+            @RequestParam(required = false) List<String> exampleEnglishTexts,
+            @RequestParam(required = false) List<String> exampleTranslationTexts,
+            @RequestParam(defaultValue = "false") boolean syncExamplesToSentences,
             @RequestPart(required = false) MultipartFile imageFile) {
         TechEnglishCorpusCreateRequest request = new TechEnglishCorpusCreateRequest(
                 corpusType,
@@ -81,8 +86,29 @@ public class TechEnglishCorpusController {
                 scenario,
                 difficulty,
                 translationText,
-                tagIds);
+                tagIds,
+                toVocabularyExamples(exampleEnglishTexts, exampleTranslationTexts),
+                syncExamplesToSentences);
         return corpusService.create(request, imageFile, UserContextHolder.requireUserId());
+    }
+
+    /** 将 multipart 中两组例句字段按索引配对。 */
+    private List<TechEnglishVocabularyExampleRequest> toVocabularyExamples(
+            List<String> exampleEnglishTexts,
+            List<String> exampleTranslationTexts) {
+        int englishCount = exampleEnglishTexts == null ? 0 : exampleEnglishTexts.size();
+        int translationCount = exampleTranslationTexts == null ? 0 : exampleTranslationTexts.size();
+        int size = Math.max(englishCount, translationCount);
+        if (size == 0) {
+            return List.of();
+        }
+        List<TechEnglishVocabularyExampleRequest> examples = new ArrayList<>(size);
+        for (int index = 0; index < size; index += 1) {
+            examples.add(new TechEnglishVocabularyExampleRequest(
+                    index < englishCount ? exampleEnglishTexts.get(index) : null,
+                    index < translationCount ? exampleTranslationTexts.get(index) : null));
+        }
+        return examples;
     }
 
     /** 读取已发布图片语料文件。 */

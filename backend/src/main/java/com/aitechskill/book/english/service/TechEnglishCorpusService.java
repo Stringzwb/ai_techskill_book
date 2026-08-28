@@ -5,14 +5,20 @@ import com.aitechskill.book.document.domain.DocumentTagRecord;
 import com.aitechskill.book.document.domain.response.DocumentTagResponse;
 import com.aitechskill.book.english.domain.TechEnglishImageContent;
 import com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity;
+import com.aitechskill.book.english.domain.entity.TechEnglishVocabularyExampleEntity;
 import com.aitechskill.book.english.domain.request.TechEnglishCorpusCreateRequest;
+import com.aitechskill.book.english.domain.request.TechEnglishVocabularyExampleRequest;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusPageResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusSummaryResponse;
+import com.aitechskill.book.english.domain.response.TechEnglishVocabularyExampleResponse;
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
+import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -33,14 +39,18 @@ public class TechEnglishCorpusService {
 
     private static final int DEFAULT_PAGE_SIZE = 12;
     private static final int MAX_PAGE_SIZE = 50;
+    private static final int MAX_VOCABULARY_EXAMPLES = 20;
 
     private final TechEnglishCorpusMapper corpusMapper;
+    private final TechEnglishVocabularyExampleMapper vocabularyExampleMapper;
     private final TechEnglishImageStorageService imageStorageService;
 
     public TechEnglishCorpusService(
             TechEnglishCorpusMapper corpusMapper,
+            TechEnglishVocabularyExampleMapper vocabularyExampleMapper,
             TechEnglishImageStorageService imageStorageService) {
         this.corpusMapper = corpusMapper;
+        this.vocabularyExampleMapper = vocabularyExampleMapper;
         this.imageStorageService = imageStorageService;
     }
 
@@ -77,23 +87,25 @@ public class TechEnglishCorpusService {
             throw new BusinessException(HttpStatus.NOT_FOUND, "TECH_ENGLISH_NOT_FOUND", "技术英语语料不存在或尚未发布");
         }
         List<DocumentTagResponse> tags = loadTags(List.of(corpus)).getOrDefault(id, List.of());
-        return toDetail(corpus, tags);
+        List<TechEnglishVocabularyExampleResponse> examples = loadExamples(corpus);
+        return toDetail(corpus, tags, examples);
     }
 
     /** 从主平台轻表单直接收录并发布技术英语语料。 */
     @Transactional
     public TechEnglishCorpusDetailResponse create(TechEnglishCorpusCreateRequest request, MultipartFile imageFile, long userId) {
-        String corpusType = normalizeOptionalType(request.corpusType());
+        String corpusType = normalizeRequiredType(request.corpusType());
         String difficulty = normalizeDifficulty(request.difficulty());
         validateTextLengths(request);
         List<Long> tagIds = validateTagIds(request.tagIds());
+        List<TechEnglishVocabularyExampleRequest> examples = normalizeExamples(corpusType, request);
         validateTypeContent(corpusType, request, imageFile);
         String corpusUuid = UUID.randomUUID().toString();
         var storedImage = "IMAGE".equals(corpusType) ? imageStorageService.save(userId, imageFile) : null;
         TechEnglishCorpusEntity corpus = new TechEnglishCorpusEntity();
         corpus.setCorpusUuid(corpusUuid);
         corpus.setCorpusType(corpusType);
-        corpus.setTitle(trimToNull(request.title()));
+        corpus.setTitle(resolveTitle(corpusType, request));
         corpus.setEnglishText(trimToNull(request.englishText()));
         corpus.setPhonetic(trimToNull(request.phonetic()));
         corpus.setExplanation(trimToNull(request.explanation()));
@@ -116,8 +128,14 @@ public class TechEnglishCorpusService {
         corpus.setUpdateby(userId);
         corpusMapper.insert(corpus);
         corpusMapper.insertTagLinks(corpus.getId(), tagIds);
+        List<TechEnglishVocabularyExampleResponse> exampleResponses = saveVocabularyExamples(
+                corpus,
+                examples,
+                tagIds,
+                Boolean.TRUE.equals(request.syncExamplesToSentences()),
+                userId);
         List<DocumentTagResponse> tags = loadTags(List.of(corpus)).getOrDefault(corpus.getId(), List.of());
-        return toDetail(corpus, tags);
+        return toDetail(corpus, tags, exampleResponses);
     }
 
     /** 读取已发布图片语料文件。 */
@@ -144,6 +162,25 @@ public class TechEnglishCorpusService {
                                 Collectors.toList())));
     }
 
+    /** 加载词汇例句。 */
+    private List<TechEnglishVocabularyExampleResponse> loadExamples(TechEnglishCorpusEntity corpus) {
+        if (!"VOCABULARY".equals(corpus.getCorpusType())) {
+            return List.of();
+        }
+        return vocabularyExampleMapper.selectList(Wrappers.<TechEnglishVocabularyExampleEntity>lambdaQuery()
+                        .eq(TechEnglishVocabularyExampleEntity::getVocabularyCorpusId, corpus.getId())
+                        .eq(TechEnglishVocabularyExampleEntity::getDeleted, 0)
+                        .orderByAsc(TechEnglishVocabularyExampleEntity::getSortOrder)
+                        .orderByAsc(TechEnglishVocabularyExampleEntity::getId))
+                .stream()
+                .map(example -> new TechEnglishVocabularyExampleResponse(
+                        example.getId(),
+                        example.getSentenceCorpusId(),
+                        example.getEnglishText(),
+                        example.getTranslationText()))
+                .toList();
+    }
+
     /** 规范化可选语料类型。 */
     private String normalizeOptionalType(String value) {
         if (!StringUtils.hasText(value)) {
@@ -159,9 +196,18 @@ public class TechEnglishCorpusService {
         return normalized;
     }
 
-    /** 校验主站轻表单字段长度和标题必填。 */
+    /** 规范化必填语料类型。 */
+    private String normalizeRequiredType(String value) {
+        String normalized = normalizeOptionalType(value);
+        if (normalized == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TYPE_INVALID", "请选择语料类型");
+        }
+        return normalized;
+    }
+
+    /** 校验主站轻表单字段长度。 */
     private void validateTextLengths(TechEnglishCorpusCreateRequest request) {
-        requireText(request.title(), 160, "TECH_ENGLISH_TITLE_REQUIRED", "请填写 160 字以内的标题");
+        checkLength(request.title(), 160, "标题不能超过 160 字");
         checkLength(request.englishText(), 20_000, "英文内容不能超过 20000 字");
         checkLength(request.phonetic(), 120, "发音提示不能超过 120 字");
         checkLength(request.explanation(), 1000, "说明不能超过 1000 字");
@@ -173,18 +219,40 @@ public class TechEnglishCorpusService {
         checkLength(request.translationText(), 5000, "中文参考不能超过 5000 字");
     }
 
-    /** 校验必填文本。 */
-    private void requireText(String value, int maxLength, String code, String message) {
-        if (!StringUtils.hasText(value) || value.trim().length() > maxLength) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, code, message);
-        }
-    }
-
     /** 校验可选文本长度。 */
     private void checkLength(String value, int maxLength, String message) {
         if (value != null && value.trim().length() > maxLength) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_FIELD_TOO_LONG", message);
         }
+    }
+
+    /** 清洗和校验词汇例句。 */
+    private List<TechEnglishVocabularyExampleRequest> normalizeExamples(String corpusType, TechEnglishCorpusCreateRequest request) {
+        List<TechEnglishVocabularyExampleRequest> rawExamples = request.vocabularyExamples() == null
+                ? List.of()
+                : request.vocabularyExamples();
+        List<TechEnglishVocabularyExampleRequest> examples = new ArrayList<>();
+        for (TechEnglishVocabularyExampleRequest example : rawExamples) {
+            if (example == null || !StringUtils.hasText(example.englishText())) {
+                continue;
+            }
+            String englishText = example.englishText().trim();
+            String translationText = trimToNull(example.translationText());
+            if (englishText.length() > 2000) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_EXAMPLE_TOO_LONG", "例句不能超过 2000 字");
+            }
+            if (translationText != null && translationText.length() > 1000) {
+                throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_EXAMPLE_TOO_LONG", "例句释义不能超过 1000 字");
+            }
+            examples.add(new TechEnglishVocabularyExampleRequest(englishText, translationText));
+        }
+        if (!"VOCABULARY".equals(corpusType) && !examples.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_EXAMPLE_UNEXPECTED", "只有词汇语料可以添加例句");
+        }
+        if (examples.size() > MAX_VOCABULARY_EXAMPLES) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_EXAMPLE_TOO_MANY", "例句最多添加 20 组");
+        }
+        return examples;
     }
 
     /** 规范化难度，主站未填写时采用中级。 */
@@ -203,6 +271,9 @@ public class TechEnglishCorpusService {
 
     /** 校验标签数量和有效性，并去重保持用户选择顺序。 */
     private List<Long> validateTagIds(List<Long> tagIds) {
+        if (tagIds == null) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TAG_REQUIRED", "请选择 1 到 20 个知识标签");
+        }
         LinkedHashSet<Long> uniqueIds = new LinkedHashSet<>(tagIds);
         if (uniqueIds.isEmpty() || uniqueIds.size() > 20) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TAG_REQUIRED", "请选择 1 到 20 个知识标签");
@@ -235,6 +306,100 @@ public class TechEnglishCorpusService {
         if (StringUtils.hasText(request.sourceUrl())) {
             requireHttpUrl(request.sourceUrl(), "TECH_ENGLISH_SOURCE_URL_INVALID", "请填写有效的来源链接");
         }
+    }
+
+    /** 根据语料类型推导标题，减少主站轻表单输入。 */
+    private String resolveTitle(String corpusType, TechEnglishCorpusCreateRequest request) {
+        String explicitTitle = trimToNull(request.title());
+        if (explicitTitle != null) {
+            return explicitTitle;
+        }
+        if ("VOCABULARY".equals(corpusType) || "SENTENCE".equals(corpusType)) {
+            return abbreviate(trimToNull(request.englishText()), 160);
+        }
+        if ("IMAGE".equals(corpusType)) {
+            String imageTitle = trimToNull(request.imageAlt());
+            return imageTitle == null ? "图片语料" : abbreviate(imageTitle, 160);
+        }
+        String sourceName = trimToNull(request.sourceName());
+        if (sourceName != null) {
+            return sourceName;
+        }
+        String articleText = trimToNull(request.articleMarkdown());
+        if (articleText != null) {
+            return abbreviate(articleText, 160);
+        }
+        return abbreviate(trimToNull(request.sourceUrl()), 160);
+    }
+
+    /** 保存词汇例句，并按需同步为句子语料。 */
+    private List<TechEnglishVocabularyExampleResponse> saveVocabularyExamples(
+            TechEnglishCorpusEntity vocabulary,
+            List<TechEnglishVocabularyExampleRequest> examples,
+            List<Long> tagIds,
+            boolean syncExamplesToSentences,
+            long userId) {
+        if (!"VOCABULARY".equals(vocabulary.getCorpusType()) || examples.isEmpty()) {
+            return List.of();
+        }
+        List<TechEnglishVocabularyExampleResponse> responses = new ArrayList<>();
+        for (int index = 0; index < examples.size(); index += 1) {
+            TechEnglishVocabularyExampleRequest request = examples.get(index);
+            Long sentenceCorpusId = syncExamplesToSentences
+                    ? createSentenceFromExample(vocabulary, request, tagIds, userId)
+                    : null;
+            TechEnglishVocabularyExampleEntity example = new TechEnglishVocabularyExampleEntity();
+            example.setVocabularyCorpusId(vocabulary.getId());
+            example.setSentenceCorpusId(sentenceCorpusId);
+            example.setEnglishText(request.englishText());
+            example.setTranslationText(trimToNull(request.translationText()));
+            example.setSortOrder(index + 1);
+            example.setCreateby(userId);
+            example.setUpdateby(userId);
+            vocabularyExampleMapper.insert(example);
+            responses.add(new TechEnglishVocabularyExampleResponse(
+                    example.getId(),
+                    sentenceCorpusId,
+                    example.getEnglishText(),
+                    example.getTranslationText()));
+        }
+        return responses;
+    }
+
+    /** 将词汇例句同步成一条独立句子语料。 */
+    private Long createSentenceFromExample(
+            TechEnglishCorpusEntity vocabulary,
+            TechEnglishVocabularyExampleRequest example,
+            List<Long> tagIds,
+            long userId) {
+        TechEnglishCorpusEntity sentence = new TechEnglishCorpusEntity();
+        sentence.setCorpusUuid(UUID.randomUUID().toString());
+        sentence.setCorpusType("SENTENCE");
+        sentence.setTitle(abbreviate(example.englishText(), 160));
+        sentence.setEnglishText(example.englishText());
+        sentence.setExplanation("来自词汇「" + vocabulary.getEnglishText() + "」的例句");
+        sentence.setScenario(vocabulary.getScenario());
+        sentence.setDifficulty(vocabulary.getDifficulty());
+        sentence.setTranslationText(trimToNull(example.translationText()));
+        sentence.setTranslationStatus(StringUtils.hasText(example.translationText()) ? "READY" : "NONE");
+        sentence.setAiReviewStatus("NOT_REQUIRED");
+        sentence.setIndexStatus("NOT_INDEXED");
+        sentence.setContentVersion(1L);
+        sentence.setStatus("PUBLISHED");
+        sentence.setPublishedAt(LocalDateTime.now());
+        sentence.setCreateby(userId);
+        sentence.setUpdateby(userId);
+        corpusMapper.insert(sentence);
+        corpusMapper.insertTagLinks(sentence.getId(), tagIds);
+        return sentence.getId();
+    }
+
+    /** 截断标题，避免超出数据库字段。 */
+    private String abbreviate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, Math.max(0, maxLength - 3)) + "...";
     }
 
     /** 校验公网 HTTP/HTTPS 链接。 */
@@ -284,6 +449,14 @@ public class TechEnglishCorpusService {
     private TechEnglishCorpusDetailResponse toDetail(
             TechEnglishCorpusEntity corpus,
             List<DocumentTagResponse> tags) {
+        return toDetail(corpus, tags, loadExamples(corpus));
+    }
+
+    /** 转换详情响应。 */
+    private TechEnglishCorpusDetailResponse toDetail(
+            TechEnglishCorpusEntity corpus,
+            List<DocumentTagResponse> tags,
+            List<TechEnglishVocabularyExampleResponse> examples) {
         return new TechEnglishCorpusDetailResponse(
                 corpus.getId(),
                 corpus.getCorpusType(),
@@ -302,7 +475,8 @@ public class TechEnglishCorpusService {
                 corpus.getTranslationText(),
                 corpus.getPublishedAt(),
                 corpus.getUpdatetime(),
-                tags);
+                tags,
+                examples);
     }
 
     /** 返回前端可直接访问的图片地址。 */

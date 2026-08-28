@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ArrowRight, BookOpenText, FileSearch, FileText, Image, Languages, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Type, UploadCloud, X } from '@lucide/vue'
+import { ArrowRight, BookOpenText, Check, FileSearch, FileText, Image, Languages, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Trash2, Type, UploadCloud, X } from '@lucide/vue'
 import KnowledgeTagSelector from '../components/KnowledgeTagSelector.vue'
+import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
 import { createTechEnglishCorpus, fetchTechEnglishCorpus } from '../services/techEnglish'
 import { authStore } from '../stores/auth'
-import type { KnowledgeTagSelection, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty } from '../types'
+import type { KnowledgeTagNode, KnowledgeTagSelection, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
+
+interface FlatTagOption {
+  id: number
+  name: string
+  level: 1 | 2 | 3
+  path: string
+}
 
 const keyword = ref('')
 const submittedKeyword = ref('')
@@ -18,8 +26,11 @@ const showComposer = ref(false)
 const submitting = ref(false)
 const submitMessage = ref('')
 const submitError = ref('')
-const createSelectorKey = ref(0)
-const createSelection = ref<KnowledgeTagSelection>({ module: null, secondary: null, tertiary: null })
+const tagTree = ref<KnowledgeTagNode[]>([])
+const tagSearch = ref('')
+const tagLoading = ref(false)
+const tagError = ref('')
+const selectedCreateTagId = ref<number | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
 const form = reactive<TechEnglishCorpusCreatePayload>({
   corpusType: 'VOCABULARY',
@@ -36,6 +47,8 @@ const form = reactive<TechEnglishCorpusCreatePayload>({
   difficulty: 'INTERMEDIATE',
   translationText: '',
   tagIds: [],
+  vocabularyExamples: [{ englishText: '', translationText: '' }],
+  syncExamplesToSentences: true,
 })
 
 const corpusTypes: Array<{ value: TechEnglishCorpusType; label: string; icon: typeof Type }> = [
@@ -52,11 +65,26 @@ const selectionLabel = computed(() => [
   selection.value.tertiary?.name,
 ].filter(Boolean).join(' / '))
 const imageFileName = computed(() => form.imageFile?.name ?? '')
-const createSelectionLabel = computed(() => [
-  createSelection.value.module?.name,
-  createSelection.value.secondary?.name,
-  createSelection.value.tertiary?.name,
-].filter(Boolean).join(' / '))
+const flatTags = computed<FlatTagOption[]>(() => {
+  const options: FlatTagOption[] = []
+  const walk = (nodes: KnowledgeTagNode[], parents: string[] = []) => {
+    nodes.forEach((node) => {
+      const pathNames = [...parents, node.name]
+      options.push({ id: node.id, name: node.name, level: node.level, path: pathNames.join(' / ') })
+      walk(node.children, pathNames)
+    })
+  }
+  walk(tagTree.value)
+  return options
+})
+const selectedCreateTag = computed(() => flatTags.value.find((tag) => tag.id === selectedCreateTagId.value) ?? null)
+const filteredCreateTags = computed(() => {
+  const query = tagSearch.value.trim().toLowerCase()
+  const source = query
+    ? flatTags.value.filter((tag) => `${tag.name} ${tag.path}`.toLowerCase().includes(query))
+    : flatTags.value
+  return source.slice(0, 24)
+})
 
 /** 转换语料类型展示文案。 */
 function typeLabel(value: TechEnglishCorpusType): string {
@@ -90,6 +118,20 @@ async function loadCorpus(page = 1): Promise<void> {
     errorMessage.value = error instanceof Error ? error.message : '技术英语语料加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+/** 加载添加表单使用的知识标签。 */
+async function loadCreateTags(): Promise<void> {
+  if (tagTree.value.length || tagLoading.value) return
+  tagLoading.value = true
+  tagError.value = ''
+  try {
+    tagTree.value = await fetchKnowledgeTagTree()
+  } catch (error) {
+    tagError.value = error instanceof Error ? error.message : '知识标签加载失败'
+  } finally {
+    tagLoading.value = false
   }
 }
 
@@ -137,29 +179,41 @@ function resetCreateForm(): void {
   form.difficulty = 'INTERMEDIATE'
   form.translationText = ''
   form.tagIds = []
-  createSelection.value = { module: null, secondary: null, tertiary: null }
-  createSelectorKey.value += 1
+  form.vocabularyExamples = [{ englishText: '', translationText: '' }]
+  form.syncExamplesToSentences = true
+  tagSearch.value = ''
+  selectedCreateTagId.value = null
   if (imageInput.value) imageInput.value.value = ''
 }
 
 /** 切换收录表单语料类型，并清空类型专属输入。 */
 function setCreateType(nextType: TechEnglishCorpusType): void {
   form.corpusType = nextType
+  form.title = ''
   form.englishText = ''
   form.phonetic = ''
+  form.explanation = ''
   form.articleMarkdown = ''
   form.imageFile = null
   form.imageAlt = ''
   form.sourceName = ''
   form.sourceUrl = ''
+  form.scenario = ''
+  form.translationText = ''
+  if (nextType !== 'VOCABULARY') {
+    form.vocabularyExamples = [{ englishText: '', translationText: '' }]
+    form.syncExamplesToSentences = false
+  } else {
+    form.syncExamplesToSentences = true
+  }
   if (imageInput.value) imageInput.value.value = ''
 }
 
-/** 收录表单的知识标签选择只绑定最深一级。 */
-function updateCreateSelection(nextSelection: KnowledgeTagSelection): void {
-  createSelection.value = nextSelection
-  const tag = nextSelection.tertiary ?? nextSelection.secondary ?? nextSelection.module
-  form.tagIds = tag ? [tag.id] : []
+/** 选择收录语料要绑定的知识标签。 */
+function selectCreateTag(tag: FlatTagOption): void {
+  selectedCreateTagId.value = tag.id
+  form.tagIds = [tag.id]
+  tagSearch.value = tag.path
 }
 
 /** 打开主站轻收录面板。 */
@@ -167,6 +221,7 @@ function openCreateForm(): void {
   submitError.value = ''
   submitMessage.value = ''
   showComposer.value = true
+  void loadCreateTags()
 }
 
 /** 接收图片语料文件。 */
@@ -175,12 +230,34 @@ function chooseImage(event: Event): void {
   form.imageFile = file
 }
 
+/** 新增一组词汇例句。 */
+function addVocabularyExample(): void {
+  form.vocabularyExamples = [...(form.vocabularyExamples ?? []), { englishText: '', translationText: '' }]
+}
+
+/** 移除一组词汇例句。 */
+function removeVocabularyExample(index: number): void {
+  const examples = [...(form.vocabularyExamples ?? [])]
+  examples.splice(index, 1)
+  form.vocabularyExamples = examples.length ? examples : [{ englishText: '', translationText: '' }]
+}
+
+/** 返回已填写的词汇例句。 */
+function filledVocabularyExamples(): TechEnglishVocabularyExampleInput[] {
+  return (form.vocabularyExamples ?? [])
+    .map((example) => ({
+      englishText: example.englishText.trim(),
+      translationText: example.translationText.trim(),
+    }))
+    .filter((example) => example.englishText)
+}
+
 /** 提交主站轻收录语料。 */
 async function submitCorpus(): Promise<void> {
   submitError.value = ''
   submitMessage.value = ''
   if (!form.tagIds.length) {
-    submitError.value = '请选择一个知识标签'
+    submitError.value = '请选择知识标签'
     return
   }
   if ((form.corpusType === 'VOCABULARY' || form.corpusType === 'SENTENCE') && !form.englishText?.trim()) {
@@ -199,7 +276,10 @@ async function submitCorpus(): Promise<void> {
   try {
     await createTechEnglishCorpus({
       ...form,
+      title: form.corpusType === 'VOCABULARY' ? '' : form.title,
       tagIds: [...form.tagIds],
+      vocabularyExamples: form.corpusType === 'VOCABULARY' ? filledVocabularyExamples() : [],
+      syncExamplesToSentences: form.corpusType === 'VOCABULARY' && Boolean(form.syncExamplesToSentences),
     })
     resetCreateForm()
     showComposer.value = false
@@ -212,7 +292,10 @@ async function submitCorpus(): Promise<void> {
   }
 }
 
-onMounted(() => loadCorpus())
+onMounted(() => {
+  void loadCorpus()
+  void loadCreateTags()
+})
 </script>
 
 <template>
@@ -250,21 +333,73 @@ onMounted(() => loadCorpus())
                 <component :is="item.icon" :size="16" />{{ item.label }}
               </button>
             </div>
-            <label>标题
-              <input v-model.trim="form.title" maxlength="160" required placeholder="例如 ArrayList 或 Spring Boot error handling" />
-            </label>
-            <KnowledgeTagSelector :key="createSelectorKey" @change="updateCreateSelection" />
-            <small class="tech-english-composer__tag">{{ createSelectionLabel || '请选择一个知识标签' }}</small>
-            <label v-if="form.corpusType === 'VOCABULARY'">单词或术语
-              <input v-model.trim="form.englishText" maxlength="20000" required placeholder="例如 idempotent" />
-            </label>
-            <label v-if="form.corpusType === 'VOCABULARY'">发音提示
-              <input v-model.trim="form.phonetic" maxlength="120" placeholder="/aɪˈdempətənt/" />
-            </label>
+
+            <section class="tech-english-composer__tag-picker">
+              <label>知识标签
+                <div class="tech-english-tag-search">
+                  <Search :size="16" />
+                  <input v-model="tagSearch" maxlength="80" placeholder="搜索并选择一个标签" />
+                </div>
+              </label>
+              <p v-if="tagLoading" class="tech-english-tag-state">正在加载标签...</p>
+              <p v-else-if="tagError" class="tech-english-tag-state tech-english-tag-state--error">{{ tagError }}</p>
+              <div v-else class="tech-english-tag-options">
+                <button v-for="tag in filteredCreateTags" :key="tag.id" type="button" :class="{ active: selectedCreateTagId === tag.id }" @click="selectCreateTag(tag)">
+                  <Check v-if="selectedCreateTagId === tag.id" :size="14" />
+                  <span>{{ tag.path }}</span>
+                </button>
+              </div>
+              <small class="tech-english-composer__tag">{{ selectedCreateTag?.path || '请选择一个知识标签' }}</small>
+            </section>
+
+            <template v-if="form.corpusType === 'VOCABULARY'">
+              <label>单词或术语
+                <input v-model.trim="form.englishText" maxlength="200" required placeholder="例如 idempotent" />
+              </label>
+              <div class="tech-english-composer__compact">
+                <label>发音提示
+                  <input v-model.trim="form.phonetic" maxlength="120" placeholder="例如 eye-DEMP-uh-tuhnt" />
+                </label>
+                <label>难度
+                  <select v-model="form.difficulty">
+                    <option value="BEGINNER">入门</option>
+                    <option value="INTERMEDIATE">中级</option>
+                    <option value="ADVANCED">高级</option>
+                  </select>
+                </label>
+              </div>
+              <label>中文释义
+                <textarea v-model="form.translationText" maxlength="5000" placeholder="例如 幂等；可重复执行且最终结果不变"></textarea>
+              </label>
+              <label>用法提示
+                <textarea v-model="form.explanation" maxlength="1000" placeholder="可选，写一句使用场景或易混点"></textarea>
+              </label>
+              <section class="tech-english-examples">
+                <header>
+                  <strong>例句</strong>
+                  <button type="button" @click="addVocabularyExample"><Plus :size="15" />添加一组</button>
+                </header>
+                <div v-for="(example, index) in form.vocabularyExamples" :key="index" class="tech-english-example-row">
+                  <textarea v-model="example.englishText" maxlength="2000" placeholder="英文例句，例如 A PUT request should be idempotent."></textarea>
+                  <textarea v-model="example.translationText" maxlength="1000" placeholder="例句释义，例如 PUT 请求应当是幂等的。"></textarea>
+                  <button type="button" title="删除例句" aria-label="删除例句" @click="removeVocabularyExample(index)">
+                    <Trash2 :size="16" />
+                  </button>
+                </div>
+                <label class="tech-english-switch">
+                  <input v-model="form.syncExamplesToSentences" type="checkbox" />
+                  <span>例句同时加入技术句子语料库</span>
+                </label>
+              </section>
+            </template>
+
             <label v-if="form.corpusType === 'SENTENCE'">技术语句
               <textarea v-model="form.englishText" required maxlength="20000" placeholder="粘贴一句技术英文表达"></textarea>
             </label>
             <template v-if="form.corpusType === 'ARTICLE'">
+              <label>文章标题
+                <input v-model.trim="form.title" maxlength="160" placeholder="可选，不填则自动使用来源或正文开头" />
+              </label>
               <label>文章正文
                 <textarea v-model="form.articleMarkdown" maxlength="50000" placeholder="可粘贴文章摘录或 Markdown 正文"></textarea>
               </label>
@@ -287,7 +422,7 @@ onMounted(() => loadCorpus())
                 <textarea v-model="form.imageAlt" maxlength="300" placeholder="说明图片中的技术语境"></textarea>
               </label>
             </template>
-            <div class="tech-english-composer__compact">
+            <div v-if="form.corpusType !== 'VOCABULARY'" class="tech-english-composer__compact">
               <label>场景
                 <input v-model.trim="form.scenario" maxlength="80" placeholder="backend / ai / database" />
               </label>
@@ -299,10 +434,10 @@ onMounted(() => loadCorpus())
                 </select>
               </label>
             </div>
-            <label>说明
+            <label v-if="form.corpusType !== 'VOCABULARY'">说明
               <textarea v-model="form.explanation" maxlength="1000" placeholder="用法、语境或记忆提示"></textarea>
             </label>
-            <label>中文参考
+            <label v-if="form.corpusType !== 'VOCABULARY'">中文参考
               <textarea v-model="form.translationText" maxlength="5000" placeholder="可选，不接翻译 API"></textarea>
             </label>
             <footer>

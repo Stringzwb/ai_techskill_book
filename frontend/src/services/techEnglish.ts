@@ -27,7 +27,7 @@ export function fetchTechEnglishCorpusDetail(id: number): Promise<TechEnglishCor
 export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload): Promise<TechEnglishCorpusDetail> {
   const body = new FormData()
   body.append('corpusType', payload.corpusType)
-  body.append('title', payload.title)
+  if (payload.title) body.append('title', payload.title)
   if (payload.englishText) body.append('englishText', payload.englishText)
   if (payload.phonetic) body.append('phonetic', payload.phonetic)
   if (payload.explanation) body.append('explanation', payload.explanation)
@@ -40,6 +40,11 @@ export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload)
   if (payload.difficulty) body.append('difficulty', payload.difficulty)
   if (payload.translationText) body.append('translationText', payload.translationText)
   payload.tagIds.forEach((tagId) => body.append('tagIds', String(tagId)))
+  payload.vocabularyExamples?.forEach((example) => {
+    body.append('exampleEnglishTexts', example.englishText)
+    body.append('exampleTranslationTexts', example.translationText)
+  })
+  if (payload.syncExamplesToSentences) body.append('syncExamplesToSentences', 'true')
   return apiRequest<TechEnglishCorpusDetail>('/api/tech-english/corpus', {
     method: 'POST',
     body,

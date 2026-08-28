@@ -139,6 +139,21 @@ export interface TechEnglishCorpusDetail extends TechEnglishCorpusSummary {
   sourceName: string | null
   sourceUrl: string | null
   updatedAt: string
+  vocabularyExamples: TechEnglishVocabularyExample[]
+}
+
+/** 技术英语词汇例句。 */
+export interface TechEnglishVocabularyExample {
+  id: number
+  sentenceCorpusId: number | null
+  englishText: string
+  translationText: string | null
+}
+
+/** 主站轻量收录词汇例句。 */
+export interface TechEnglishVocabularyExampleInput {
+  englishText: string
+  translationText: string
 }
 
 /** 主站轻量收录技术英语语料。 */
@@ -157,6 +172,8 @@ export interface TechEnglishCorpusCreatePayload {
   difficulty?: TechEnglishDifficulty
   translationText?: string
   tagIds: number[]
+  vocabularyExamples?: TechEnglishVocabularyExampleInput[]
+  syncExamplesToSentences?: boolean
 }
 
 export type CommunityPostType = 'QUESTION' | 'IMAGE' | 'LINK' | 'FILE' | 'VOTE'

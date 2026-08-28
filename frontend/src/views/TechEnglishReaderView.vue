@@ -94,6 +94,14 @@ onMounted(loadCorpus)
           <small>TRANSLATION</small>
           <p>{{ corpus.translationText }}</p>
         </section>
+        <section v-if="corpus.vocabularyExamples.length" class="tech-english-detail-block tech-english-example-detail">
+          <small>EXAMPLES</small>
+          <div v-for="example in corpus.vocabularyExamples" :key="example.id" class="tech-english-example-detail__item">
+            <p class="tech-english-detail-english">{{ example.englishText }}</p>
+            <span v-if="example.translationText">{{ example.translationText }}</span>
+            <RouterLink v-if="example.sentenceCorpusId" :to="`/tech-english/${example.sentenceCorpusId}`">已同步到句子语料</RouterLink>
+          </div>
+        </section>
         <figure v-if="corpus.corpusType === 'IMAGE' && corpus.imageUrl" class="tech-english-detail-image">
           <img :src="corpus.imageUrl" :alt="corpus.imageAlt || corpus.title" />
           <figcaption v-if="corpus.imageAlt">{{ corpus.imageAlt }}</figcaption>

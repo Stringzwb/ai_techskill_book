@@ -25,6 +25,7 @@ import java.util.List;
  * @param publishedAt 发布时间
  * @param updatedAt 更新时间
  * @param knowledgeTags 关联知识标签
+ * @param vocabularyExamples 词汇例句
  */
 public record TechEnglishCorpusDetailResponse(
         long id,
@@ -44,5 +45,6 @@ public record TechEnglishCorpusDetailResponse(
         String translationText,
         LocalDateTime publishedAt,
         LocalDateTime updatedAt,
-        List<DocumentTagResponse> knowledgeTags) {
+        List<DocumentTagResponse> knowledgeTags,
+        List<TechEnglishVocabularyExampleResponse> vocabularyExamples) {
 }
