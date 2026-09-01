@@ -11,6 +11,7 @@ import com.aitechskill.book.english.domain.response.TechEnglishKeyVocabularyResp
 import com.aitechskill.book.english.domain.response.TechEnglishPatternExampleResponse;
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
 import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.aitechskill.book.storage.domain.StoredObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -50,17 +52,25 @@ public class TechEnglishAiImportPersistenceService {
         this.objectMapper = objectMapper;
     }
 
-    /** 在同一事务中保存 AI 自动分类后的生词和句子。 */
+    /** 在同一事务中幂等保存 AI 自动分类后的生词和句子。 */
     @Transactional
     public List<TechEnglishCorpusDetailResponse> saveAuto(
             String batchUuid,
             TechEnglishAutoImportPayload payload,
             List<StoredObject> images,
-            List<Long> tagIds,
+            Map<String, List<Long>> itemTagAssignments,
             String sourceName,
             String scenario,
             int exampleCount,
             long userId) {
+        List<TechEnglishCorpusEntity> existing = corpusMapper.selectList(
+                Wrappers.<TechEnglishCorpusEntity>lambdaQuery()
+                        .eq(TechEnglishCorpusEntity::getImportBatchUuid, batchUuid)
+                        .eq(TechEnglishCorpusEntity::getCreateby, userId)
+                        .eq(TechEnglishCorpusEntity::getDeleted, 0));
+        if (!existing.isEmpty()) {
+            return existing.stream().map(item -> corpusService.getPublishedCorpus(item.getId())).toList();
+        }
         List<TechEnglishVocabularyImportPayload.Item> vocabularyItems = payload.vocabulary() == null
                 || payload.vocabulary().items() == null ? List.of() : payload.vocabulary().items();
         List<TechEnglishSentenceImportPayload.Item> sentenceItems = payload.sentences() == null
@@ -78,14 +88,13 @@ public class TechEnglishAiImportPersistenceService {
                     "TECH_ENGLISH_AI_TOO_MANY_ITEMS",
                     "单次识别结果过多，请拆分截图");
         }
-        validateTagIds(tagIds);
         List<TechEnglishCorpusDetailResponse> created = new ArrayList<>();
         if (!vocabularyItems.isEmpty()) {
             created.addAll(saveVocabulary(
                     batchUuid,
                     payload.vocabulary(),
                     images,
-                    tagIds,
+                    itemTagAssignments,
                     sourceName,
                     scenario,
                     exampleCount,
@@ -96,7 +105,7 @@ public class TechEnglishAiImportPersistenceService {
                     batchUuid,
                     payload.sentences(),
                     images,
-                    tagIds,
+                    itemTagAssignments,
                     sourceName,
                     scenario,
                     exampleCount,
@@ -111,13 +120,12 @@ public class TechEnglishAiImportPersistenceService {
             String batchUuid,
             TechEnglishVocabularyImportPayload payload,
             List<StoredObject> images,
-            List<Long> tagIds,
+            Map<String, List<Long>> itemTagAssignments,
             String sourceName,
             String scenario,
             int exampleCount,
             long userId) {
         List<TechEnglishVocabularyImportPayload.Item> items = requireItems(payload.items());
-        validateTagIds(tagIds);
         List<Long> createdIds = new ArrayList<>();
         Set<String> importedWords = new HashSet<>();
         for (TechEnglishVocabularyImportPayload.Item item : items) {
@@ -126,6 +134,9 @@ public class TechEnglishAiImportPersistenceService {
                 continue;
             }
             int imageIndex = requireImageIndex(item.sourceImageIndex(), images.size());
+            List<Long> tagIds = requireTagIds(
+                    itemTagAssignments,
+                    TechEnglishAiRecognitionItemKey.create("VOCABULARY", imageIndex, word));
             List<TechEnglishVocabularyImportPayload.Example> examples = normalizeVocabularyExamples(
                     item.examples(), exampleCount);
             TechEnglishCorpusEntity corpus = baseCorpus(
@@ -151,13 +162,12 @@ public class TechEnglishAiImportPersistenceService {
             String batchUuid,
             TechEnglishSentenceImportPayload payload,
             List<StoredObject> images,
-            List<Long> tagIds,
+            Map<String, List<Long>> itemTagAssignments,
             String sourceName,
             String scenario,
             int exampleCount,
             long userId) {
         List<TechEnglishSentenceImportPayload.Item> items = requireItems(payload.items());
-        validateTagIds(tagIds);
         List<Long> createdIds = new ArrayList<>();
         Set<String> importedSentences = new HashSet<>();
         for (TechEnglishSentenceImportPayload.Item item : items) {
@@ -166,6 +176,9 @@ public class TechEnglishAiImportPersistenceService {
                 continue;
             }
             int imageIndex = requireImageIndex(item.sourceImageIndex(), images.size());
+            List<Long> tagIds = requireTagIds(
+                    itemTagAssignments,
+                    TechEnglishAiRecognitionItemKey.create("SENTENCE", imageIndex, sentence));
             List<TechEnglishKeyVocabularyResponse> keyVocabulary = normalizeKeyVocabulary(item.keyVocabulary());
             List<TechEnglishPatternExampleResponse> patternExamples = normalizePatternExamples(
                     item.patternExamples(), exampleCount);
@@ -303,6 +316,16 @@ public class TechEnglishAiImportPersistenceService {
                 || corpusMapper.countActiveTags(tagIds) != tagIds.size()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TAG_INVALID", "请选择有效的知识标签");
         }
+    }
+
+    /** 读取并校验单条语料的标签。 */
+    private List<Long> requireTagIds(Map<String, List<Long>> itemTagAssignments, String itemKey) {
+        List<Long> tagIds = itemTagAssignments.get(itemKey);
+        if (tagIds == null || tagIds.isEmpty()) {
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TAG_REQUIRED", "请选择有效的知识标签");
+        }
+        validateTagIds(tagIds);
+        return tagIds;
     }
 
     /** 校验 AI 返回的来源截图序号。 */

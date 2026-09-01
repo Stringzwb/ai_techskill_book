@@ -8,6 +8,7 @@ import com.aitechskill.book.english.domain.ai.TechEnglishAiImportDraft;
 import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishSentenceImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishVocabularyImportPayload;
+import com.aitechskill.book.english.domain.request.TechEnglishAiItemTagAssignment;
 import com.aitechskill.book.english.domain.response.TechEnglishAiImportResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishAiRecognitionItemResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishAiRecognitionResponse;
@@ -16,6 +17,7 @@ import com.aitechskill.book.english.domain.response.TechEnglishKeyVocabularyResp
 import com.aitechskill.book.english.domain.response.TechEnglishPatternExampleResponse;
 import com.aitechskill.book.storage.domain.StoredObject;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,8 +30,10 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -42,7 +46,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 先识别截图并保存短期草稿，用户确认标签后再将图片和语料正式入库。
+ * 识别截图时持久化原图和 AI 结果，用户确认标签后再将语料正式入库。
  */
 @Service
 @ConditionalOnProperty(name = "app.ai.enabled", havingValue = "true")
@@ -56,11 +60,13 @@ public class TechEnglishAiImportService {
     private static final String VOCABULARY_TEMPLATE_TYPE = "MINT_VOCABULARY_IMPORT_V1";
     private static final String SENTENCE_TEMPLATE_TYPE = "MINT_SENTENCE_IMPORT_V1";
     private static final int MAX_ITEMS_PER_IMPORT = 100;
+    private static final int MAX_IMAGES_PER_CHUNK = 5;
 
     private final AiChatService aiChatService;
     private final TechEnglishImageStorageService imageStorageService;
     private final TechEnglishAiImportPersistenceService persistenceService;
     private final TechEnglishAiImportDraftStore draftStore;
+    private final TechEnglishAiRecognitionRecordService recordService;
     private final TechEnglishImportProperties properties;
     private final ObjectMapper objectMapper;
     private final String vocabularyTemplate;
@@ -71,12 +77,14 @@ public class TechEnglishAiImportService {
             TechEnglishImageStorageService imageStorageService,
             TechEnglishAiImportPersistenceService persistenceService,
             TechEnglishAiImportDraftStore draftStore,
+            TechEnglishAiRecognitionRecordService recordService,
             TechEnglishImportProperties properties,
             ObjectMapper objectMapper) {
         this.aiChatService = aiChatService;
         this.imageStorageService = imageStorageService;
         this.persistenceService = persistenceService;
         this.draftStore = draftStore;
+        this.recordService = recordService;
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.vocabularyTemplate = loadTemplate("ai/tech-english-vocabulary-import-template.json");
@@ -84,8 +92,11 @@ public class TechEnglishAiImportService {
     }
 
     /**
-     * 识别截图并返回待确认草稿，此阶段不要求标签且不写数据库或对象存储。
+     * 识别截图并返回待确认草稿，此阶段不要求标签，但会持久化识别记录和原图。
      *
+     * @param sessionUuid 页面一次上传会话标识
+     * @param chunkIndex 当前并发子任务序号
+     * @param chunkCount 并发子任务总数
      * @param scenario 例句场景
      * @param exampleCount 每条语料的例句数
      * @param images 截图列表
@@ -93,15 +104,30 @@ public class TechEnglishAiImportService {
      * @return 待确认识别结果
      */
     public TechEnglishAiRecognitionResponse recognizeScreenshots(
+            String sessionUuid,
+            int chunkIndex,
+            int chunkCount,
             String scenario,
             int exampleCount,
             List<MultipartFile> images,
             long userId) {
+        String normalizedSessionUuid = normalizeSessionUuid(sessionUuid);
+        validateChunk(chunkIndex, chunkCount);
         String normalizedScenario = normalizeScenario(scenario);
         int normalizedExampleCount = validateExampleCount(exampleCount);
         validateImages(images);
         String sourceName = requireSourceName();
         String batchUuid = UUID.randomUUID().toString();
+        recordService.start(
+                normalizedSessionUuid,
+                batchUuid,
+                chunkIndex,
+                chunkCount,
+                images.size(),
+                normalizedExampleCount,
+                sourceName,
+                normalizedScenario,
+                userId);
         String prompt = buildPrompt(
                 sourceName,
                 normalizedScenario,
@@ -110,14 +136,24 @@ public class TechEnglishAiImportService {
         long startedAt = System.nanoTime();
         LOGGER.info("技术英语 AI 自动识别开始，批次={}，图片数={}，例句数={}",
                 batchUuid, images.size(), normalizedExampleCount);
+        List<StoredObject> storedImages = new ArrayList<>();
+        boolean recordRecognized = false;
         try {
             AiChatResponse aiResponse = aiChatService.vision(prompt, images);
             List<TechEnglishAiImportDraft.ImageFingerprint> fingerprints = fingerprintImages(images);
             RecognitionBundle recognition = parseRecognition(
                     aiResponse.text(), images.size(), normalizedExampleCount);
+            for (MultipartFile image : images) {
+                storedImages.add(imageStorageService.save(userId, image));
+            }
+            recordService.recognized(batchUuid, aiResponse.text(), recognition.items(), storedImages);
+            recordRecognized = true;
             Instant createdAt = Instant.now();
             draftStore.save(new TechEnglishAiImportDraft(
+                    normalizedSessionUuid,
                     batchUuid,
+                    chunkIndex,
+                    chunkCount,
                     userId,
                     AUTO_TYPE,
                     sourceName,
@@ -130,7 +166,10 @@ public class TechEnglishAiImportService {
             LOGGER.info("技术英语 AI 自动识别完成，批次={}，语料数={}，耗时毫秒={}",
                     batchUuid, recognition.items().size(), elapsedMillis);
             return new TechEnglishAiRecognitionResponse(
+                    normalizedSessionUuid,
                     batchUuid,
+                    chunkIndex,
+                    chunkCount,
                     AUTO_TYPE,
                     sourceName,
                     images.size(),
@@ -138,6 +177,10 @@ public class TechEnglishAiImportService {
                     createdAt.plus(draftStore.draftTtl()),
                     recognition.items());
         } catch (RuntimeException exception) {
+            if (!recordRecognized) {
+                cleanup(storedImages);
+                recordService.failed(batchUuid, exception);
+            }
             long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
             LOGGER.warn("技术英语 AI 自动识别失败，批次={}，耗时毫秒={}，异常类型={}",
                     batchUuid, elapsedMillis, exception.getClass().getSimpleName());
@@ -145,25 +188,69 @@ public class TechEnglishAiImportService {
         }
     }
 
+    /** 兼容旧调用方，按单批次识别一组截图。 */
+    public TechEnglishAiRecognitionResponse recognizeScreenshots(
+            String scenario,
+            int exampleCount,
+            List<MultipartFile> images,
+            long userId) {
+        return recognizeScreenshots(
+                UUID.randomUUID().toString(), 1, 1, scenario, exampleCount, images, userId);
+    }
+
     /**
-     * 用户选择标签并确认后，校验原截图并完成对象存储与事务入库。
+     * 用户选择标签并确认后，复用已保存原图并完成事务入库。
      *
      * @param batchUuid 识别批次
-     * @param tagIds 知识标签
+     * @param itemTagAssignmentsJson 每条识图语料的独立标签 JSON
      * @param images 与识别阶段一致的截图
      * @param userId 当前用户
      * @return 正式入库结果
      */
     public TechEnglishAiImportResponse confirmImport(
             String batchUuid,
-            List<Long> tagIds,
+            String itemTagAssignmentsJson,
             List<MultipartFile> images,
             long userId) {
         String normalizedBatchUuid = normalizeBatchUuid(batchUuid);
-        List<Long> normalizedTagIds = normalizeTagIds(tagIds);
-        validateImages(images);
-        TechEnglishAiImportDraft draft = draftStore.require(normalizedBatchUuid, userId);
-        verifyImages(draft.imageFingerprints(), images);
+        TechEnglishAiImportDraft draft = null;
+        try {
+            draft = draftStore.require(normalizedBatchUuid, userId);
+        } catch (BusinessException exception) {
+            if (!"TECH_ENGLISH_AI_DRAFT_EXPIRED".equals(exception.getCode())) {
+                throw exception;
+            }
+        }
+        com.aitechskill.book.english.domain.entity.TechEnglishAiRecognitionRecordEntity record =
+                recordService.findImportRecord(userId, normalizedBatchUuid);
+        if (record != null && "IMPORTED".equals(record.getStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "TECH_ENGLISH_AI_ALREADY_IMPORTED", "该识别结果已经入库，请勿重复提交");
+        }
+        if (record != null && !"RECOGNIZED".equals(record.getStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "TECH_ENGLISH_AI_NOT_READY", "该批次当前没有可入库的识别结果");
+        }
+        if (draft == null) {
+            record = recordService.requireImportRecord(userId, normalizedBatchUuid);
+        }
+        List<StoredObject> sourceImages = record == null ? List.of() : recordService.sourceImages(record);
+        if (draft != null) {
+            validateImages(images);
+            verifyImages(draft.imageFingerprints(), images);
+        }
+        if (sourceImages.isEmpty()) {
+            validateImages(images);
+        }
+        String payloadJson = draft != null ? draft.payloadJson() : record.getRawResultJson();
+        int imageCount = draft != null ? images.size() : record.getImageCount();
+        int exampleCount = draft != null ? draft.exampleCount() : record.getExampleCount();
+        RecognitionBundle recognition = parseRecognition(payloadJson, imageCount, exampleCount);
+        if (draft != null) {
+            recordService.ensureLegacyRecognized(draft, imageCount, recognition.items(), userId);
+        }
+        Map<String, List<Long>> itemTagAssignments = normalizeItemTagAssignments(
+                itemTagAssignmentsJson, recognition.items());
         if (!draftStore.acquireConfirmation(normalizedBatchUuid, userId)) {
             throw new BusinessException(
                     HttpStatus.CONFLICT,
@@ -174,21 +261,32 @@ public class TechEnglishAiImportService {
         List<StoredObject> storedImages = new ArrayList<>();
         boolean completed = false;
         try {
-            for (MultipartFile image : images) {
-                storedImages.add(imageStorageService.save(userId, image));
+            if (!sourceImages.isEmpty()) {
+                storedImages.addAll(sourceImages);
+            } else {
+                for (MultipartFile image : images) {
+                    storedImages.add(imageStorageService.save(userId, image));
+                }
             }
             List<TechEnglishCorpusDetailResponse> created = persistAuto(
-                    draft, storedImages, normalizedTagIds, userId);
+                    draft != null ? draft : new TechEnglishAiImportDraft(
+                            record.getSessionUuid(), record.getBatchUuid(), record.getChunkIndex(),
+                            record.getChunkCount(), userId, AUTO_TYPE, record.getSourceName(),
+                            record.getScenario(), exampleCount, List.of(), payloadJson, Instant.now()),
+                    storedImages, itemTagAssignments, userId);
+            recordService.imported(normalizedBatchUuid);
             completed = true;
             return new TechEnglishAiImportResponse(
                     normalizedBatchUuid,
                     AUTO_TYPE,
-                    draft.sourceName(),
+                    draft != null ? draft.sourceName() : record.getSourceName(),
                     storedImages.size(),
                     created.size(),
                     created);
         } catch (RuntimeException exception) {
-            cleanup(storedImages);
+            if (sourceImages.isEmpty()) {
+                cleanup(storedImages);
+            }
             throw exception;
         } finally {
             if (completed) {
@@ -262,6 +360,7 @@ public class TechEnglishAiImportService {
                                     trimToNull(value.translationText(), 1000)))
                             .toList();
             result.add(new TechEnglishAiRecognitionItemResponse(
+                    TechEnglishAiRecognitionItemKey.create(VOCABULARY_TYPE, imageIndex, word),
                     imageIndex,
                     VOCABULARY_TYPE,
                     word,
@@ -316,6 +415,7 @@ public class TechEnglishAiImportService {
                                     trimToNull(value.translationText(), 1000)))
                             .toList();
             result.add(new TechEnglishAiRecognitionItemResponse(
+                    TechEnglishAiRecognitionItemKey.create(SENTENCE_TYPE, imageIndex, sentence),
                     imageIndex,
                     SENTENCE_TYPE,
                     sentence,
@@ -335,7 +435,7 @@ public class TechEnglishAiImportService {
     private List<TechEnglishCorpusDetailResponse> persistAuto(
             TechEnglishAiImportDraft draft,
             List<StoredObject> images,
-            List<Long> tagIds,
+            Map<String, List<Long>> itemTagAssignments,
             long userId) {
         TechEnglishAutoImportPayload payload = parseJson(
                 draft.payloadJson(), TechEnglishAutoImportPayload.class);
@@ -347,7 +447,7 @@ public class TechEnglishAiImportService {
             throw invalidAiResponse("自动分类识别结果模板不正确");
         }
         return persistenceService.saveAuto(
-                draft.batchUuid(), payload, images, tagIds, draft.sourceName(),
+                draft.batchUuid(), payload, images, itemTagAssignments, draft.sourceName(),
                 draft.scenario(), draft.exampleCount(), userId);
     }
 
@@ -493,6 +593,25 @@ public class TechEnglishAiImportService {
         }
     }
 
+    /** 校验页面一次上传会话标识。 */
+    private String normalizeSessionUuid(String sessionUuid) {
+        if (!StringUtils.hasText(sessionUuid)) {
+            throw badRequest("TECH_ENGLISH_AI_SESSION_INVALID", "识图会话标识不正确");
+        }
+        try {
+            return UUID.fromString(sessionUuid.trim()).toString();
+        } catch (IllegalArgumentException exception) {
+            throw badRequest("TECH_ENGLISH_AI_SESSION_INVALID", "识图会话标识不正确");
+        }
+    }
+
+    /** 校验最多四个并发子任务的序号。 */
+    private void validateChunk(int chunkIndex, int chunkCount) {
+        if (chunkCount < 1 || chunkCount > 4 || chunkIndex < 1 || chunkIndex > chunkCount) {
+            throw badRequest("TECH_ENGLISH_AI_CHUNK_INVALID", "识图子任务序号不正确");
+        }
+    }
+
     /** 校验例句数量。 */
     private int validateExampleCount(int exampleCount) {
         if (exampleCount < 0 || exampleCount > properties.getMaxExampleCount()) {
@@ -529,6 +648,36 @@ public class TechEnglishAiImportService {
         return normalized;
     }
 
+    /** 解析并校验每条识图语料的独立标签。 */
+    private Map<String, List<Long>> normalizeItemTagAssignments(
+            String json,
+            List<TechEnglishAiRecognitionItemResponse> items) {
+        if (!StringUtils.hasText(json)) {
+            throw badRequest("TECH_ENGLISH_TAG_REQUIRED", "请为每条识图结果选择知识标签");
+        }
+        List<TechEnglishAiItemTagAssignment> assignments;
+        try {
+            assignments = objectMapper.readValue(json, new TypeReference<>() { });
+        } catch (JsonProcessingException exception) {
+            throw badRequest("TECH_ENGLISH_TAG_INVALID", "识图结果的标签选择不正确");
+        }
+        Set<String> expectedKeys = items.stream()
+                .map(TechEnglishAiRecognitionItemResponse::itemKey)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        Map<String, List<Long>> normalized = new LinkedHashMap<>();
+        for (TechEnglishAiItemTagAssignment assignment : assignments) {
+            if (assignment == null || !expectedKeys.contains(assignment.itemKey())
+                    || normalized.containsKey(assignment.itemKey())) {
+                throw badRequest("TECH_ENGLISH_TAG_INVALID", "识图结果的标签选择不正确");
+            }
+            normalized.put(assignment.itemKey(), normalizeTagIds(assignment.tagIds()));
+        }
+        if (!normalized.keySet().equals(expectedKeys)) {
+            throw badRequest("TECH_ENGLISH_TAG_REQUIRED", "请为每条识图结果选择知识标签");
+        }
+        return Map.copyOf(normalized);
+    }
+
     /** 校验截图数量。 */
     private void validateImages(List<MultipartFile> images) {
         if (images == null || images.isEmpty()) {
@@ -541,6 +690,9 @@ public class TechEnglishAiImportService {
         }
         if (images.stream().anyMatch(image -> image == null || image.isEmpty())) {
             throw badRequest("TECH_ENGLISH_IMAGE_INVALID", "上传的截图不能为空");
+        }
+        if (images.size() > MAX_IMAGES_PER_CHUNK) {
+            throw badRequest("TECH_ENGLISH_IMAGES_TOO_MANY", "单个识别请求最多上传 5 张截图");
         }
     }
 

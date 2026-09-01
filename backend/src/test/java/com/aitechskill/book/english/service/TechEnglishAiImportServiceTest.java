@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -67,6 +68,8 @@ class TechEnglishAiImportServiceTest {
     private TechEnglishAiImportPersistenceService persistenceService;
     @Mock
     private TechEnglishAiImportDraftStore draftStore;
+    @Mock
+    private TechEnglishAiRecognitionRecordService recordService;
 
     private TechEnglishAiImportService service;
 
@@ -82,11 +85,12 @@ class TechEnglishAiImportServiceTest {
                 imageStorageService,
                 persistenceService,
                 draftStore,
+                recordService,
                 properties,
                 new ObjectMapper());
     }
 
-    /** 生词识别无需标签，只保存短期草稿且不写对象存储和数据库。 */
+    /** 生词识别保存草稿、永久记录和识别阶段原图。 */
     @Test
     void recognizesVocabularyWithoutTags() {
         MockMultipartFile image = image("words.png", 1);
@@ -98,9 +102,9 @@ class TechEnglishAiImportServiceTest {
         ArgumentCaptor<TechEnglishAiImportDraft> draftCaptor =
                 ArgumentCaptor.forClass(TechEnglishAiImportDraft.class);
         verify(draftStore).save(draftCaptor.capture());
-        verify(imageStorageService, never()).save(anyLong(), any());
+        verify(imageStorageService).save(anyLong(), any());
         verify(persistenceService, never()).saveAuto(
-                anyString(), any(), anyList(), anyList(), anyString(), any(), anyInt(), anyLong());
+                anyString(), any(), anyList(), anyMap(), anyString(), any(), anyInt(), anyLong());
         assertThat(response.importType()).isEqualTo("AUTO");
         assertThat(response.sourceName()).isEqualTo("薄荷阅读");
         assertThat(response.items()).singleElement().satisfies(item -> {
@@ -258,16 +262,18 @@ class TechEnglishAiImportServiceTest {
         given(draftStore.acquireConfirmation(batchUuid, 7L)).willReturn(true);
         given(imageStorageService.save(7L, image)).willReturn(stored("confirm.png"));
         given(persistenceService.saveAuto(
-                anyString(), any(), anyList(), anyList(), anyString(), any(), anyInt(), anyLong()))
+                anyString(), any(), anyList(), anyMap(), anyString(), any(), anyInt(), anyLong()))
                 .willReturn(List.of());
 
-        var response = service.confirmImport(batchUuid, List.of(6L), List.of(image), 7L);
+        String itemKey = TechEnglishAiRecognitionItemKey.create("VOCABULARY", 1, "meticulous");
+        String assignments = "[{\"itemKey\":\"" + itemKey + "\",\"tagIds\":[6]}]";
+        var response = service.confirmImport(batchUuid, assignments, List.of(image), 7L);
 
         ArgumentCaptor<TechEnglishAutoImportPayload> payloadCaptor =
                 ArgumentCaptor.forClass(TechEnglishAutoImportPayload.class);
         verify(persistenceService).saveAuto(
                 anyString(), payloadCaptor.capture(), anyList(),
-                org.mockito.ArgumentMatchers.eq(List.of(6L)), anyString(), any(), anyInt(), anyLong());
+                org.mockito.ArgumentMatchers.eq(java.util.Map.of(itemKey, List.of(6L))), anyString(), any(), anyInt(), anyLong());
         assertThat(payloadCaptor.getValue().vocabulary().items()).singleElement()
                 .satisfies(item -> assertThat(item.word()).isEqualTo("meticulous"));
         assertThat(response.batchUuid()).isEqualTo(batchUuid);
@@ -283,11 +289,11 @@ class TechEnglishAiImportServiceTest {
         given(draftStore.acquireConfirmation(batchUuid, 7L)).willReturn(true);
         given(imageStorageService.save(7L, image)).willReturn(stored("cleanup.png"));
         given(persistenceService.saveAuto(
-                anyString(), any(), anyList(), anyList(), anyString(), any(), anyInt(), anyLong()))
+                anyString(), any(), anyList(), anyMap(), anyString(), any(), anyInt(), anyLong()))
                 .willThrow(new IllegalStateException("database unavailable"));
 
         assertThatThrownBy(() -> service.confirmImport(
-                batchUuid, List.of(2L), List.of(image), 7L))
+                batchUuid, assignmentsFor("meticulous", 2L), List.of(image), 7L))
                 .isInstanceOf(IllegalStateException.class);
 
         verify(imageStorageService).delete("prod/tech_english/cleanup.png");
@@ -307,6 +313,9 @@ class TechEnglishAiImportServiceTest {
                     MessageDigest.getInstance("SHA-256").digest(image.getBytes()));
             return new TechEnglishAiImportDraft(
                     batchUuid,
+                    batchUuid,
+                    1,
+                    1,
                     7L,
                     "AUTO",
                     "薄荷阅读",
@@ -324,6 +333,12 @@ class TechEnglishAiImportServiceTest {
     /** 创建对象存储返回值。 */
     private StoredObject stored(String name) {
         return new StoredObject("prod/tech_english/" + name, "image/png", 3);
+    }
+
+    /** 创建单条词汇的标签 JSON。 */
+    private String assignmentsFor(String word, long tagId) {
+        String itemKey = TechEnglishAiRecognitionItemKey.create("VOCABULARY", 1, word);
+        return "[{\"itemKey\":\"" + itemKey + "\",\"tagIds\":[" + tagId + "]}]";
     }
 
     /** 创建模型响应。 */

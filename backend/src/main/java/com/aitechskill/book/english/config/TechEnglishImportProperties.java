@@ -17,7 +17,7 @@ public class TechEnglishImportProperties {
     private String sourceName = "薄荷阅读";
 
     /** 单次允许上传的最大截图数。 */
-    private int maxImages = 10;
+    private int maxImages = 20;
 
     /** 单条语料允许生成的最大例句数。 */
     private int maxExampleCount = 5;

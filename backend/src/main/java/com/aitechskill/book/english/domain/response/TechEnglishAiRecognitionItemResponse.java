@@ -5,6 +5,7 @@ import java.util.List;
 /**
  * 等待用户确认的单条截图识别结果。
  *
+ * @param itemKey 识图语料稳定标识
  * @param sourceImageIndex 来源截图序号
  * @param corpusType AI 自动判定的语料类型
  * @param englishText 生词或经典句子
@@ -18,6 +19,7 @@ import java.util.List;
  * @param examples 生词或经典句式例句
  */
 public record TechEnglishAiRecognitionItemResponse(
+        String itemKey,
         int sourceImageIndex,
         String corpusType,
         String englishText,

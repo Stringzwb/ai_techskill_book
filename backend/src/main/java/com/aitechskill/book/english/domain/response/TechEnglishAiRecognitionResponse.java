@@ -6,7 +6,10 @@ import java.util.List;
 /**
  * 截图识别草稿，用户选择标签并确认后才正式入库。
  *
+ * @param sessionUuid 页面一次上传会话标识
  * @param batchUuid 草稿批次标识
+ * @param chunkIndex 当前并发子任务序号
+ * @param chunkCount 并发子任务总数
  * @param importType 识别模式，固定为 AUTO
  * @param sourceName 语料来源
  * @param imageCount 截图数量
@@ -15,7 +18,10 @@ import java.util.List;
  * @param items 待确认识别结果
  */
 public record TechEnglishAiRecognitionResponse(
+        String sessionUuid,
         String batchUuid,
+        int chunkIndex,
+        int chunkCount,
         String importType,
         String sourceName,
         int imageCount,

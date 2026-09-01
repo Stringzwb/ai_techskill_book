@@ -1,5 +1,16 @@
 import { apiRequest } from './http'
-import type { TechEnglishAiConfirmPayload, TechEnglishAiImportPayload, TechEnglishAiImportResponse, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusDetail, TechEnglishCorpusPage, TechEnglishCorpusType } from '../types'
+import type {
+  TechEnglishAiConfirmPayload,
+  TechEnglishAiImportPayload,
+  TechEnglishAiImportResponse,
+  TechEnglishAiRecognitionResponse,
+  TechEnglishCorpusCreatePayload,
+  TechEnglishCorpusDetail,
+  TechEnglishCorpusPage,
+  TechEnglishCorpusType,
+  TechEnglishRecognitionHistoryDetail,
+  TechEnglishRecognitionHistoryPage,
+} from '../types'
 
 /** 查询已发布技术英语语料。 */
 export function fetchTechEnglishCorpus(params: {
@@ -51,12 +62,15 @@ export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload)
   })
 }
 
-/** 上传最多十张截图，由 AI 识别并返回等待确认的草稿。 */
+/** 上传单个分组截图，由 AI 识别并返回等待确认的草稿。 */
 export function importTechEnglishScreenshots(payload: TechEnglishAiImportPayload): Promise<TechEnglishAiRecognitionResponse> {
   const body = new FormData()
+  body.append('sessionUuid', payload.sessionUuid)
+  body.append('chunkIndex', String(payload.chunkIndex))
+  body.append('chunkCount', String(payload.chunkCount))
   body.append('scenario', payload.scenario)
   body.append('exampleCount', String(payload.exampleCount))
-  payload.images.forEach((image) => body.append('images', image))
+  payload.images?.forEach((image) => body.append('images', image))
   return apiRequest<TechEnglishAiRecognitionResponse>('/api/tech-english/imports/screenshots', {
     method: 'POST',
     body,
@@ -66,10 +80,33 @@ export function importTechEnglishScreenshots(payload: TechEnglishAiImportPayload
 /** 选择知识标签后确认识别草稿，正式保存截图和语料。 */
 export function confirmTechEnglishScreenshotImport(payload: TechEnglishAiConfirmPayload): Promise<TechEnglishAiImportResponse> {
   const body = new FormData()
-  payload.tagIds.forEach((tagId) => body.append('tagIds', String(tagId)))
-  payload.images.forEach((image) => body.append('images', image))
+  body.append('itemTagAssignments', JSON.stringify(payload.itemTagAssignments))
+  payload.images?.forEach((image) => body.append('images', image))
   return apiRequest<TechEnglishAiImportResponse>(`/api/tech-english/imports/screenshots/${payload.batchUuid}/confirm`, {
     method: 'POST',
     body,
   })
+}
+
+/** 查询当前用户的识图记录列表。 */
+export function fetchTechEnglishRecognitionHistory(params: { page?: number; size?: number } = {}): Promise<TechEnglishRecognitionHistoryPage> {
+  const query = new URLSearchParams()
+  query.set('page', String(params.page ?? 1))
+  query.set('size', String(params.size ?? 10))
+  return apiRequest<TechEnglishRecognitionHistoryPage>(`/api/tech-english/imports/history?${query.toString()}`)
+}
+
+/** 查询当前用户的一次识图会话详情。 */
+export function fetchTechEnglishRecognitionHistoryDetail(sessionUuid: string): Promise<TechEnglishRecognitionHistoryDetail> {
+  return apiRequest<TechEnglishRecognitionHistoryDetail>(`/api/tech-english/imports/history/${sessionUuid}`)
+}
+
+/** 导出当前用户的一次识图会话。 */
+export function downloadTechEnglishRecognitionHistory(sessionUuid: string, format: 'markdown' | 'html') {
+  return `/api/tech-english/imports/history/${sessionUuid}/export?format=${format}`
+}
+
+/** 导出识图会话中的单个批次。 */
+export function downloadTechEnglishRecognitionBatchHistory(sessionUuid: string, batchUuid: string, format: 'markdown' | 'html') {
+  return `/api/tech-english/imports/history/${sessionUuid}/batches/${batchUuid}/export?format=${format}`
 }

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aitechskill.book.english.mapper.TechEnglishAiRecognitionRecordMapper">
+    <select id="countSessions" resultType="long">
+        SELECT COUNT(DISTINCT session_uuid)
+        FROM tech_english_ai_recognition_record
+        WHERE createby = #{userId}
+          AND deleted = 0
+    </select>
+
+    <select id="selectSessionPage" resultType="com.aitechskill.book.english.domain.TechEnglishRecognitionSessionSummaryRow">
+        SELECT session_uuid,
+               MAX(source_name) AS source_name,
+               MAX(scenario) AS scenario,
+               MAX(chunk_count) AS chunk_count,
+               COUNT(*) AS task_count,
+               SUM(status = 'PROCESSING') AS processing_count,
+               SUM(status = 'RECOGNIZED') AS recognized_count,
+               SUM(status = 'FAILED') AS failed_count,
+               SUM(status = 'IMPORTED') AS imported_count,
+               SUM(image_count) AS image_count,
+               SUM(item_count) AS item_count,
+               MIN(createtime) AS createtime,
+               MAX(updatetime) AS updatetime
+        FROM tech_english_ai_recognition_record
+        WHERE createby = #{userId}
+          AND deleted = 0
+        GROUP BY session_uuid
+        ORDER BY MIN(createtime) DESC, MAX(id) DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="selectSessionTasks" resultType="com.aitechskill.book.english.domain.entity.TechEnglishAiRecognitionRecordEntity">
+        SELECT *
+        FROM tech_english_ai_recognition_record
+        WHERE createby = #{userId}
+          AND session_uuid = #{sessionUuid}
+          AND deleted = 0
+        ORDER BY chunk_index ASC, id ASC
+    </select>
+</mapper>

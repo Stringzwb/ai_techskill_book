@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/documents/:id', name: 'document-reader', component: () => import('./views/DocumentReaderView.vue') },
     { path: '/tech-english', name: 'tech-english', component: () => import('./views/TechEnglishView.vue') },
     { path: '/tech-english/import', name: 'tech-english-import', component: () => import('./views/TechEnglishView.vue') },
+    { path: '/tech-english/history', name: 'tech-english-history', component: () => import('./views/TechEnglishHistoryView.vue'), meta: { requiresAuth: true } },
     { path: '/tech-english/:id', name: 'tech-english-reader', component: () => import('./views/TechEnglishReaderView.vue') },
     { path: '/paths', name: 'paths', component: () => import('./views/PathsView.vue'), meta: { requiresAuth: true } },
     { path: '/profile', name: 'profile', component: () => import('./views/ProfileView.vue'), meta: { requiresAuth: true } },

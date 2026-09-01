@@ -6,7 +6,7 @@ import KnowledgeTagSelector from '../components/KnowledgeTagSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
 import { confirmTechEnglishScreenshotImport, createTechEnglishCorpus, fetchTechEnglishCorpus, importTechEnglishScreenshots } from '../services/techEnglish'
 import { authStore } from '../stores/auth'
-import type { KnowledgeTagNode, KnowledgeTagSelection, TechEnglishAiImportResponse, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
+import type { KnowledgeTagNode, KnowledgeTagSelection, TechEnglishAiConfirmPayload, TechEnglishAiImportResponse, TechEnglishAiItemTagAssignment, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
 
 interface FlatTagOption {
   id: number
@@ -20,6 +20,9 @@ interface AiImagePreview {
   file: File
   url: string
 }
+
+const AI_MAX_IMAGES = 20
+const AI_CHUNK_SIZE = 5
 
 const keyword = ref('')
 const route = useRoute()
@@ -51,8 +54,10 @@ const aiDragActive = ref(false)
 const aiImporting = ref(false)
 const aiConfirming = ref(false)
 const aiImportError = ref('')
-const aiRecognitionResult = ref<TechEnglishAiRecognitionResponse | null>(null)
-const aiImportResult = ref<TechEnglishAiImportResponse | null>(null)
+const aiSessionUuid = ref('')
+const aiRecognitionResults = ref<TechEnglishAiRecognitionResponse[]>([])
+const aiImportResults = ref<TechEnglishAiImportResponse[]>([])
+const aiItemTagAssignments = reactive<Record<string, number[]>>({})
 const form = reactive<TechEnglishCorpusCreatePayload>({
   corpusType: 'VOCABULARY',
   title: '',
@@ -114,7 +119,75 @@ const filteredAiTags = computed(() => {
     : flatTags.value
   return source.slice(0, 18)
 })
-const aiRemainingImages = computed(() => Math.max(0, 10 - aiImages.value.length))
+const aiRemainingImages = computed(() => Math.max(0, AI_MAX_IMAGES - aiImages.value.length))
+const aiRecognitionCount = computed(() => aiRecognitionResults.value.length)
+const aiRecognizedItemCount = computed(() => aiRecognitionResults.value.reduce((total, batch) => total + batch.items.length, 0))
+const aiImportedCount = computed(() => aiImportResults.value.reduce((total, batch) => total + batch.createdCount, 0))
+
+/** 根据标签 ID 返回可读路径。 */
+function tagPath(tagId: number): string {
+  return flatTags.value.find((tag) => tag.id === tagId)?.path ?? `#${tagId}`
+}
+
+/** 生成分组上传的会话标识。 */
+function createAiSessionUuid(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+/** 按固定长度切分截图。 */
+function splitAiImages(images: AiImagePreview[], size: number): AiImagePreview[][] {
+  const chunks: AiImagePreview[][] = []
+  for (let index = 0; index < images.length; index += size) {
+    chunks.push(images.slice(index, index + size))
+  }
+  return chunks
+}
+
+/** 清空某条识图结果的标签。 */
+function clearAiItemAssignment(itemKey: string): void {
+  delete aiItemTagAssignments[itemKey]
+}
+
+/** 为某条识图结果追加当前选中的标签。 */
+function assignCurrentTagToAiItem(itemKey: string): void {
+  if (!selectedAiTagId.value) return
+  const next = new Set(aiItemTagAssignments[itemKey] ?? [])
+  next.add(selectedAiTagId.value)
+  aiItemTagAssignments[itemKey] = Array.from(next)
+}
+
+/** 将当前标签填充到所有尚未标注的识图结果。 */
+function fillCurrentTagToUnassignedItems(): void {
+  if (!selectedAiTagId.value) return
+  aiRecognitionResults.value.forEach((batch) => {
+    batch.items.forEach((item) => {
+      if (!(aiItemTagAssignments[item.itemKey]?.length ?? 0)) {
+        aiItemTagAssignments[item.itemKey] = [selectedAiTagId.value as number]
+      }
+    })
+  })
+}
+
+/** 构建提交给后端的标签映射。 */
+function buildItemTagAssignments(batch: TechEnglishAiRecognitionResponse): TechEnglishAiConfirmPayload['itemTagAssignments'] {
+  return batch.items.map((item) => ({
+    itemKey: item.itemKey,
+    tagIds: [...(aiItemTagAssignments[item.itemKey] ?? [])],
+  }))
+}
+
+/** 检查单条识图结果是否已完成标签选择。 */
+function hasItemTags(itemKey: string): boolean {
+  return Boolean(aiItemTagAssignments[itemKey]?.length)
+}
+
+/** 判断单个识图批次是否已完成标签选择。 */
+function isBatchTagged(batch: TechEnglishAiRecognitionResponse): boolean {
+  return batch.items.every((item) => hasItemTags(item.itemKey))
+}
+
+/** 判断全部识图结果是否都已完成标签选择。 */
+const allAiItemsTagged = computed(() => aiRecognitionResults.value.every((batch) => batch.items.every((item) => hasItemTags(item.itemKey))))
 
 /** 转换语料类型展示文案。 */
 function typeLabel(value: TechEnglishCorpusType): string {
@@ -255,8 +328,9 @@ function selectAiTag(tag: FlatTagOption): void {
 /** 将选择或拖入的图片追加到待识别队列。 */
 function addAiImages(files: File[]): void {
   aiImportError.value = ''
-  aiRecognitionResult.value = null
-  aiImportResult.value = null
+  aiRecognitionResults.value = []
+  aiImportResults.value = []
+  Object.keys(aiItemTagAssignments).forEach((key) => delete aiItemTagAssignments[key])
   const supported = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
   const typeValidFiles = files.filter((file) => supported.has(file.type))
   const validFiles = typeValidFiles.filter((file) => file.size <= 10 * 1024 * 1024)
@@ -278,7 +352,7 @@ function addAiImages(files: File[]): void {
     })),
   ]
   if (uniqueFiles.length > accepted.length) {
-    aiImportError.value = '单次最多上传 10 张截图，超出的图片未加入队列'
+    aiImportError.value = `单次最多上传 ${AI_MAX_IMAGES} 张截图，超出的图片未加入队列`
   }
 }
 
@@ -300,8 +374,9 @@ function removeAiImage(id: string): void {
   const target = aiImages.value.find((item) => item.id === id)
   if (target) URL.revokeObjectURL(target.url)
   aiImages.value = aiImages.value.filter((item) => item.id !== id)
-  aiRecognitionResult.value = null
-  aiImportResult.value = null
+  aiRecognitionResults.value = []
+  aiImportResults.value = []
+  Object.keys(aiItemTagAssignments).forEach((key) => delete aiItemTagAssignments[key])
 }
 
 /** 清空截图识别队列及上一次结果。 */
@@ -313,16 +388,19 @@ function resetAiImport(): void {
   aiTagSearch.value = ''
   selectedAiTagId.value = null
   aiImportError.value = ''
-  aiRecognitionResult.value = null
-  aiImportResult.value = null
+  aiRecognitionResults.value = []
+  aiImportResults.value = []
+  Object.keys(aiItemTagAssignments).forEach((key) => delete aiItemTagAssignments[key])
+  aiSessionUuid.value = ''
+  Object.keys(aiItemTagAssignments).forEach((key) => delete aiItemTagAssignments[key])
   if (aiImageInput.value) aiImageInput.value.value = ''
 }
 
 /** 上传截图并调用 AI 生成等待用户确认的识别草稿。 */
 async function submitAiImport(): Promise<void> {
   aiImportError.value = ''
-  aiRecognitionResult.value = null
-  aiImportResult.value = null
+  aiRecognitionResults.value = []
+  aiImportResults.value = []
   if (!authStore.state.user) {
     aiImportError.value = '请先登录后再使用截图智能入库'
     return
@@ -331,19 +409,50 @@ async function submitAiImport(): Promise<void> {
     aiImportError.value = '请至少上传一张截图'
     return
   }
+  const chunks = splitAiImages(aiImages.value, AI_CHUNK_SIZE)
+  if (chunks.length > 4) {
+    aiImportError.value = '最多支持 4 组并发识别，请把截图控制在 20 张以内'
+    return
+  }
   if (!Number.isInteger(aiExampleCount.value) || aiExampleCount.value < 0 || aiExampleCount.value > 5) {
     aiImportError.value = '例句数量必须在 0 到 5 之间'
     return
   }
   aiImporting.value = true
   try {
-    aiRecognitionResult.value = await importTechEnglishScreenshots({
+    const sessionUuid = createAiSessionUuid()
+    aiSessionUuid.value = sessionUuid
+    const settled = await Promise.allSettled(chunks.map((chunk, index) => importTechEnglishScreenshots({
+      sessionUuid,
+      chunkIndex: index + 1,
+      chunkCount: chunks.length,
       scenario: aiScenario.value.trim(),
       exampleCount: aiExampleCount.value,
-      images: aiImages.value.map((item) => item.file),
+      images: chunk.map((item) => item.file),
+    })))
+    const results = settled
+      .filter((item): item is PromiseFulfilledResult<TechEnglishAiRecognitionResponse> => item.status === 'fulfilled')
+      .map((item) => item.value)
+    const failures = settled
+      .map((item, index) => (item.status === 'rejected' ? `第 ${index + 1} 组：${item.reason instanceof Error ? item.reason.message : '识别失败'}` : ''))
+      .filter(Boolean)
+    aiRecognitionResults.value = results
+    results.forEach((batch) => {
+      batch.items.forEach((item) => {
+        if (!aiItemTagAssignments[item.itemKey]) {
+          aiItemTagAssignments[item.itemKey] = []
+        }
+      })
     })
+    if (failures.length) {
+      aiImportError.value = failures.join('；')
+    }
     selectedAiTagId.value = null
     aiTagSearch.value = ''
+    if (!results.length) {
+      aiImportError.value = failures.length ? failures.join('；') : '没有任何识别分组成功'
+      return
+    }
   } catch (error) {
     aiImportError.value = error instanceof Error ? error.message : '截图识别失败，请稍后重试'
   } finally {
@@ -351,28 +460,27 @@ async function submitAiImport(): Promise<void> {
   }
 }
 
-/** 用户查看识别结果并选择知识标签后，确认保存截图和语料。 */
-async function confirmAiImport(): Promise<void> {
+/** 用户为单个识图批次选择标签后，确认保存该批次截图和语料。 */
+async function confirmAiBatch(batch: TechEnglishAiRecognitionResponse): Promise<void> {
   aiImportError.value = ''
-  aiImportResult.value = null
-  if (!aiRecognitionResult.value) {
-    aiImportError.value = '请先完成截图识别'
-    return
-  }
-  if (!selectedAiTagId.value) {
-    aiImportError.value = '请在确认环节选择知识标签'
+  if (!isBatchTagged(batch)) {
+    aiImportError.value = `请先为第 ${batch.chunkIndex} 组的每条识图结果选择知识标签`
     return
   }
   aiConfirming.value = true
   try {
-    aiImportResult.value = await confirmTechEnglishScreenshotImport({
-      batchUuid: aiRecognitionResult.value.batchUuid,
-      tagIds: [selectedAiTagId.value],
-      images: aiImages.value.map((item) => item.file),
+    const result = await confirmTechEnglishScreenshotImport({
+      batchUuid: batch.batchUuid,
+      itemTagAssignments: buildItemTagAssignments(batch),
+      images: aiImages.value.slice(
+        (batch.chunkIndex - 1) * AI_CHUNK_SIZE,
+        (batch.chunkIndex - 1) * AI_CHUNK_SIZE + batch.imageCount,
+      ).map((item) => item.file),
     })
-    aiRecognitionResult.value = null
+    aiImportResults.value = [...aiImportResults.value, result]
+    aiRecognitionResults.value = aiRecognitionResults.value.filter((item) => item.batchUuid !== batch.batchUuid)
   } catch (error) {
-    aiImportError.value = error instanceof Error ? error.message : '确认入库失败，请稍后重试'
+    aiImportError.value = error instanceof Error ? error.message : `第 ${batch.chunkIndex} 组入库失败，请稍后重试`
   } finally {
     aiConfirming.value = false
   }
@@ -482,6 +590,7 @@ onBeforeUnmount(() => {
         <template v-else>
           <div class="tech-english-stat"><strong>{{ result.total }}</strong><span>已发布</span></div>
           <RouterLink class="primary-button" to="/tech-english/import"><Sparkles :size="17" />AI 识图入库</RouterLink>
+          <RouterLink class="secondary-button" to="/tech-english/history"><FileSearch :size="17" />识图记录</RouterLink>
         </template>
         <button v-if="!isAiImportPage && authStore.state.user" class="secondary-button" type="button" @click="openCreateForm">
           <Plus :size="18" />添加语料
@@ -495,9 +604,13 @@ onBeforeUnmount(() => {
         <div>
           <span><Sparkles :size="14" /> AI SCREENSHOT IMPORT</span>
           <h2 id="tech-english-ai-title">上传与自动分类</h2>
-          <p>一次最多 10 张；AI 自动判定语料类型，你只需查看结果并在确认时选择标签。</p>
+          <p>最多 20 张截图，每组 5 张，自动拆成最多 4 个并发识别任务。每条结果都要单独选标签，确认后才会入库。</p>
         </div>
-        <div class="tech-english-ai-source"><small>当前来源</small><strong>薄荷阅读</strong></div>
+        <div class="tech-english-ai-source">
+          <small>当前来源</small>
+          <strong>薄荷阅读</strong>
+          <RouterLink class="secondary-button" to="/tech-english/history"><FileSearch :size="16" />识图记录</RouterLink>
+        </div>
       </header>
 
       <form class="tech-english-ai-layout" @submit.prevent="submitAiImport">
@@ -513,15 +626,15 @@ onBeforeUnmount(() => {
             <p><Languages :size="15" /><span><strong>句子配置</strong>翻译、重点词汇、经典句式与例句</span></p>
           </div>
           <div class="tech-english-ai-flow">
-            <span>1</span><p>AI 自动分类并按对应 JSON 配置输出</p>
-            <span>2</span><p>查看结果并选择知识标签</p>
-            <span>3</span><p>确认后保存截图并发布语料</p>
+            <span>1</span><p>上传截图并自动切成 5 张一组</p>
+            <span>2</span><p>查看每条识别结果并单独选标签</p>
+            <span>3</span><p>一次确认后完成入库</p>
           </div>
         </aside>
 
         <main class="tech-english-ai-panel">
           <div class="tech-english-ai-panel__heading">
-            <div><small>02 · 上传阅读截图</small><strong>{{ aiImages.length }} / 10 张</strong></div>
+            <div><small>02 · 上传阅读截图</small><strong>{{ aiImages.length }} / 20 张</strong></div>
             <button v-if="aiImages.length" type="button" @click="resetAiImport"><RotateCcw :size="14" />重新选择</button>
           </div>
 
@@ -544,11 +657,11 @@ onBeforeUnmount(() => {
             <figure v-for="(imageItem, index) in aiImages" :key="imageItem.id">
               <img :src="imageItem.url" :alt="`待识别截图 ${index + 1}`" />
               <figcaption><span>{{ index + 1 }}</span><small>{{ imageItem.file.name }}</small></figcaption>
-              <button type="button" title="移除这张截图" :aria-label="`移除第 ${index + 1} 张截图`" @click="removeAiImage(imageItem.id)"><X :size="15" /></button>
+              <button type="button" title="移除这张截图" :aria-label="`移除第 ${index + 1 } 张截图`" @click="removeAiImage(imageItem.id)"><X :size="15" /></button>
             </figure>
           </div>
 
-          <section v-if="!aiRecognitionResult && !aiImportResult" class="tech-english-ai-settings">
+          <section v-if="!aiRecognitionResults.length && !aiImportResults.length" class="tech-english-ai-settings">
             <div class="tech-english-ai-settings__heading"><small>03 · 设置识别规则</small><span>此阶段无需选择标签</span></div>
             <div class="tech-english-ai-settings__grid tech-english-ai-settings__grid--recognition">
               <label>例句场景
@@ -570,75 +683,102 @@ onBeforeUnmount(() => {
             <span>登录后即可识别截图，并在确认结果时选择知识标签。</span>
             <RouterLink class="primary-button" to="/login"><LogIn :size="16" />前往登录</RouterLink>
           </div>
-          <footer v-else-if="!aiRecognitionResult && !aiImportResult" class="tech-english-ai-submit">
-            <p><strong>先识别，不入库</strong><span>下一步会展示完整结果，再由你选择标签并确认。</span></p>
+          <footer v-else-if="!aiRecognitionResults.length && !aiImportResults.length" class="tech-english-ai-submit">
+            <p><strong>先识别，不入库</strong><span>下一步会展示完整结果，再由你给每条内容选标签并确认。</span></p>
             <button class="primary-button" type="submit" :disabled="aiImporting">
               <Sparkles :size="17" />{{ aiImporting ? '正在识别截图…' : `开始识别 ${aiImages.length || ''} 张截图` }}
             </button>
           </footer>
 
-          <section v-if="aiRecognitionResult" class="tech-english-ai-review" aria-live="polite">
+          <section v-if="aiRecognitionResults.length" class="tech-english-ai-review" aria-live="polite">
             <header>
-              <div><Sparkles :size="19" /><span><strong>识别完成，等待确认</strong><small>{{ aiRecognitionResult.imageCount }} 张截图，识别到 {{ aiRecognitionResult.itemCount }} 条语料</small></span></div>
-              <small>尚未入库 · 来源 {{ aiRecognitionResult.sourceName }}</small>
+              <div><Sparkles :size="19" /><span><strong>识别完成，等待确认</strong><small>{{ aiRecognitionCount }} 组任务 · {{ aiRecognizedItemCount }} 条语料</small></span></div>
+              <small>会话 {{ aiSessionUuid }}</small>
             </header>
-            <div class="tech-english-ai-review__list">
-              <article v-for="(item, index) in aiRecognitionResult.items" :key="`${item.sourceImageIndex}-${index}`">
-                <header><span>截图 {{ item.sourceImageIndex }}</span><small>{{ item.corpusType === 'VOCABULARY' ? '生词' : '经典句子' }}</small></header>
-                <h3>{{ item.englishText }}</h3>
-                <div v-if="item.partOfSpeech || item.britishPhonetic || item.americanPhonetic" class="tech-english-ai-review__pronunciation">
-                  <strong v-if="item.partOfSpeech">{{ item.partOfSpeech }}</strong>
-                  <span v-if="item.britishPhonetic">英 {{ item.britishPhonetic }}</span>
-                  <span v-if="item.americanPhonetic">美 {{ item.americanPhonetic }}</span>
+
+            <section class="tech-english-ai-tag-picker tech-english-ai-tag-picker--batch">
+              <label>当前标签
+                <div class="tech-english-tag-search">
+                  <Search :size="16" />
+                  <input v-model="aiTagSearch" maxlength="80" placeholder="搜索并选择一个标签" @input="selectedAiTagId = null" />
                 </div>
-                <p v-if="item.translationText">{{ item.translationText }}</p>
-                <section v-if="item.sentencePattern" class="tech-english-ai-review__pattern">
-                  <small>经典句式</small><strong>{{ item.sentencePattern }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
-                </section>
-                <div v-if="item.keyVocabulary.length" class="tech-english-ai-review__keywords">
-                  <span v-for="word in item.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`"><strong>{{ word.word }}</strong>{{ word.partOfSpeech ? ` · ${word.partOfSpeech}` : '' }}{{ word.meaning ? ` · ${word.meaning}` : '' }}</span>
+              </label>
+              <p v-if="tagLoading" class="tech-english-tag-state">正在加载标签...</p>
+              <p v-else-if="tagError" class="tech-english-tag-state tech-english-tag-state--error">{{ tagError }}</p>
+              <div v-else-if="aiTagSearch && !selectedAiTag" class="tech-english-ai-tag-options">
+                <button v-for="tag in filteredAiTags" :key="tag.id" type="button" @click="selectAiTag(tag)"><span>{{ tag.path }}</span></button>
+              </div>
+              <button v-if="selectedAiTag" class="tech-english-ai-selected-tag" type="button" title="重新选择知识标签" @click="selectedAiTagId = null">
+                <Check :size="14" /><span>{{ selectedAiTag.path }}</span><X :size="13" />
+              </button>
+              <footer class="tech-english-ai-tag-picker__actions">
+                <p>先选中一个当前标签，再逐条补充；也可以一键填充到所有未标注项。</p>
+                <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="fillCurrentTagToUnassignedItems">
+                  <Check :size="16" />填充到未标注项
+                </button>
+              </footer>
+            </section>
+
+            <div class="tech-english-ai-review__chunks">
+              <article v-for="batch in aiRecognitionResults" :key="batch.batchUuid" class="tech-english-ai-chunk">
+                <header class="tech-english-ai-chunk__header">
+                  <span>分组 {{ batch.chunkIndex }} / {{ batch.chunkCount }}</span>
+                  <div>
+                    <small>{{ batch.imageCount }} 张截图 · {{ batch.itemCount }} 条语料</small>
+                    <button class="secondary-button" type="button" :disabled="aiConfirming || !isBatchTagged(batch)" @click="confirmAiBatch(batch)">
+                      <Check :size="15" />{{ aiConfirming ? '入库中…' : '确认本组入库' }}
+                    </button>
+                  </div>
+                </header>
+                <div class="tech-english-ai-review__list">
+                  <article v-for="item in batch.items" :key="item.itemKey" class="tech-english-ai-item">
+                    <header>
+                      <span>截图 {{ item.sourceImageIndex }}</span>
+                      <small>{{ item.corpusType === 'VOCABULARY' ? '生词' : '经典句子' }}</small>
+                    </header>
+                    <h3>{{ item.englishText }}</h3>
+                    <div v-if="item.partOfSpeech || item.britishPhonetic || item.americanPhonetic" class="tech-english-ai-review__pronunciation">
+                      <strong v-if="item.partOfSpeech">{{ item.partOfSpeech }}</strong>
+                      <span v-if="item.britishPhonetic">英 {{ item.britishPhonetic }}</span>
+                      <span v-if="item.americanPhonetic">美 {{ item.americanPhonetic }}</span>
+                    </div>
+                    <p v-if="item.translationText">{{ item.translationText }}</p>
+                    <section v-if="item.sentencePattern" class="tech-english-ai-review__pattern">
+                      <small>经典句式</small><strong>{{ item.sentencePattern }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
+                    </section>
+                    <div v-if="item.keyVocabulary.length" class="tech-english-ai-review__keywords">
+                      <span v-for="word in item.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`"><strong>{{ word.word }}</strong>{{ word.partOfSpeech ? ` · ${word.partOfSpeech}` : '' }}{{ word.meaning ? ` · ${word.meaning}` : '' }}</span>
+                    </div>
+                    <details v-if="item.examples.length">
+                      <summary>{{ item.examples.length }} 条扩展例句</summary>
+                      <div v-for="(example, exampleIndex) in item.examples" :key="exampleIndex"><p>{{ example.englishText }}</p><small v-if="example.translationText">{{ example.translationText }}</small></div>
+                    </details>
+                    <div class="tech-english-ai-item__tags">
+                      <span v-for="tagId in aiItemTagAssignments[item.itemKey] ?? []" :key="tagId">{{ tagPath(tagId) }}</span>
+                      <small v-if="!hasItemTags(item.itemKey)">未标注</small>
+                    </div>
+                    <footer class="tech-english-ai-item__actions">
+                      <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="assignCurrentTagToAiItem(item.itemKey)">使用当前标签</button>
+                      <button class="secondary-button" type="button" :disabled="!hasItemTags(item.itemKey)" @click="clearAiItemAssignment(item.itemKey)">清空</button>
+                    </footer>
+                  </article>
                 </div>
-                <details v-if="item.examples.length">
-                  <summary>{{ item.examples.length }} 条扩展例句</summary>
-                  <div v-for="(example, exampleIndex) in item.examples" :key="exampleIndex"><p>{{ example.englishText }}</p><small v-if="example.translationText">{{ example.translationText }}</small></div>
-                </details>
               </article>
             </div>
 
             <section class="tech-english-ai-confirm">
-              <div class="tech-english-ai-confirm__heading"><span>04 · 确认入库</span><small>现在选择这批语料的知识标签</small></div>
-              <section class="tech-english-ai-tag-picker">
-                <label>知识标签
-                  <div class="tech-english-tag-search">
-                    <Search :size="16" />
-                    <input v-model="aiTagSearch" maxlength="80" placeholder="搜索并选择归档标签" @input="selectedAiTagId = null" />
-                  </div>
-                </label>
-                <p v-if="tagLoading" class="tech-english-tag-state">正在加载标签...</p>
-                <p v-else-if="tagError" class="tech-english-tag-state tech-english-tag-state--error">{{ tagError }}</p>
-                <div v-else-if="aiTagSearch && !selectedAiTag" class="tech-english-ai-tag-options">
-                  <button v-for="tag in filteredAiTags" :key="tag.id" type="button" @click="selectAiTag(tag)"><span>{{ tag.path }}</span></button>
-                </div>
-                <button v-if="selectedAiTag" class="tech-english-ai-selected-tag" type="button" title="重新选择知识标签" @click="selectedAiTagId = null">
-                  <Check :size="14" /><span>{{ selectedAiTag.path }}</span><X :size="13" />
-                </button>
-              </section>
-              <footer>
-                <p>确认后，原始截图才会存入对象存储，识别结果才会发布到语料库。</p>
-                <button class="primary-button" type="button" :disabled="aiConfirming" @click="confirmAiImport">
-                  <Check :size="17" />{{ aiConfirming ? '正在确认入库…' : `确认入库 ${aiRecognitionResult.itemCount} 条` }}
-                </button>
-              </footer>
+              <div class="tech-english-ai-confirm__heading"><span>04 · 分批确认入库</span><small>每个批次都可单独入库，已入库批次不会重复创建</small></div>
+              <p>为当前批次的每条结果选择标签后，点击该批次右上角的确认按钮即可。</p>
             </section>
           </section>
 
-          <section v-if="aiImportResult" class="tech-english-ai-result" aria-live="polite">
+          <section v-if="aiImportResults.length" class="tech-english-ai-result" aria-live="polite">
             <header>
-              <div><Check :size="19" /><span><strong>识别入库完成</strong><small>{{ aiImportResult.imageCount }} 张截图，共创建 {{ aiImportResult.createdCount }} 条语料</small></span></div>
-              <small>来源 · {{ aiImportResult.sourceName }}</small>
+              <div><Check :size="19" /><span><strong>识别入库完成</strong><small>{{ aiImportResults.reduce((total, batch) => total + batch.imageCount, 0) }} 张截图，共创建 {{ aiImportedCount }} 条语料</small></span></div>
+              <small>来源 · {{ aiImportResults[0]?.sourceName ?? '识图结果' }}</small>
             </header>
             <div class="tech-english-ai-result__grid">
-              <RouterLink v-for="item in aiImportResult.items" :key="item.id" :to="`/tech-english/${item.id}`">
+              <RouterLink v-for="item in aiImportResults.flatMap((batch) => batch.items)" :key="item.id" :to="`/tech-english/${item.id}`">
                 <span>{{ item.corpusType === 'VOCABULARY' ? '生词' : '句子' }}</span>
                 <strong>{{ item.title }}</strong>
                 <p>{{ item.translationText || item.explanation || '已创建语料' }}</p>

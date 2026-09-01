@@ -201,6 +201,9 @@ export type TechEnglishAiImportType = 'AUTO'
 
 /** AI 截图导入请求。 */
 export interface TechEnglishAiImportPayload {
+  sessionUuid: string
+  chunkIndex: number
+  chunkCount: number
   scenario: string
   exampleCount: number
   images: File[]
@@ -208,6 +211,7 @@ export interface TechEnglishAiImportPayload {
 
 /** 等待用户确认的单条截图识别结果。 */
 export interface TechEnglishAiRecognitionItem {
+  itemKey: string
   sourceImageIndex: number
   corpusType: 'VOCABULARY' | 'SENTENCE'
   englishText: string
@@ -223,7 +227,10 @@ export interface TechEnglishAiRecognitionItem {
 
 /** AI 截图识别草稿，选择标签确认后才正式入库。 */
 export interface TechEnglishAiRecognitionResponse {
+  sessionUuid: string
   batchUuid: string
+  chunkIndex: number
+  chunkCount: number
   importType: TechEnglishAiImportType
   sourceName: string
   imageCount: number
@@ -232,11 +239,17 @@ export interface TechEnglishAiRecognitionResponse {
   items: TechEnglishAiRecognitionItem[]
 }
 
+/** 单条识图结果的标签分配。 */
+export interface TechEnglishAiItemTagAssignment {
+  itemKey: string
+  tagIds: number[]
+}
+
 /** AI 识别草稿确认入库请求。 */
 export interface TechEnglishAiConfirmPayload {
   batchUuid: string
-  tagIds: number[]
-  images: File[]
+  itemTagAssignments: TechEnglishAiItemTagAssignment[]
+  images?: File[]
 }
 
 /** AI 截图导入结果。 */
@@ -247,6 +260,59 @@ export interface TechEnglishAiImportResponse {
   imageCount: number
   createdCount: number
   items: TechEnglishCorpusDetail[]
+}
+
+/** 识图历史分页。 */
+export interface TechEnglishRecognitionHistoryPage {
+  total: number
+  page: number
+  size: number
+  totalPages: number
+  items: TechEnglishRecognitionHistorySummary[]
+}
+
+/** 识图历史会话摘要。 */
+export interface TechEnglishRecognitionHistorySummary {
+  sessionUuid: string
+  status: 'PROCESSING' | 'FAILED' | 'RECOGNIZED' | 'PARTIAL' | 'IMPORTED'
+  sourceName: string | null
+  scenario: string | null
+  chunkCount: number
+  completedChunkCount: number
+  imageCount: number
+  itemCount: number
+  importedChunkCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+/** 识图历史单个子任务。 */
+export interface TechEnglishRecognitionHistoryTask {
+  batchUuid: string
+  status: 'PROCESSING' | 'FAILED' | 'RECOGNIZED' | 'IMPORTED'
+  chunkIndex: number
+  chunkCount: number
+  imageCount: number
+  itemCount: number
+  errorCode: string | null
+  errorMessage: string | null
+  createdAt: string
+  completedAt: string | null
+  importedAt: string | null
+  items: TechEnglishAiRecognitionItem[]
+}
+
+/** 识图历史详情。 */
+export interface TechEnglishRecognitionHistoryDetail {
+  sessionUuid: string
+  status: 'PROCESSING' | 'FAILED' | 'RECOGNIZED' | 'PARTIAL' | 'IMPORTED'
+  sourceName: string | null
+  scenario: string | null
+  imageCount: number
+  itemCount: number
+  createdAt: string
+  updatedAt: string
+  tasks: TechEnglishRecognitionHistoryTask[]
 }
 
 export type CommunityPostType = 'QUESTION' | 'IMAGE' | 'LINK' | 'FILE' | 'VOTE'

@@ -6,7 +6,10 @@ import java.util.List;
 /**
  * 截图识别完成后等待用户确认的临时草稿。
  *
+ * @param sessionUuid 页面一次上传会话标识
  * @param batchUuid 草稿批次标识
+ * @param chunkIndex 当前并发子任务序号
+ * @param chunkCount 并发子任务总数
  * @param userId 草稿所属用户
  * @param importType 识别模式，新草稿固定为 AUTO
  * @param sourceName 语料来源
@@ -17,7 +20,10 @@ import java.util.List;
  * @param createdAt 草稿创建时间
  */
 public record TechEnglishAiImportDraft(
+        String sessionUuid,
         String batchUuid,
+        int chunkIndex,
+        int chunkCount,
         long userId,
         String importType,
         String sourceName,

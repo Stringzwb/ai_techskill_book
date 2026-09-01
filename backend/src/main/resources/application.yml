@@ -184,7 +184,7 @@ app:
       # 当前允许的固定来源，后续可扩展为来源列表。
       source-name: ${TECH_ENGLISH_IMPORT_SOURCE_NAME:薄荷阅读}
       # 单次导入最大截图数。
-      max-images: ${TECH_ENGLISH_IMPORT_MAX_IMAGES:10}
+      max-images: ${TECH_ENGLISH_IMPORT_MAX_IMAGES:20}
       # 单条语料允许 AI 生成的最大例句数。
       max-example-count: ${TECH_ENGLISH_IMPORT_MAX_EXAMPLES:5}
       # 识别结果等待用户确认的有效期。
