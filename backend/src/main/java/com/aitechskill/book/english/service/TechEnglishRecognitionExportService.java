@@ -234,14 +234,14 @@ public class TechEnglishRecognitionExportService {
                 .grid{display:grid;gap:18px;margin-top:24px}.card{padding:26px;border:1px solid var(--line);border-radius:22px;background:#fffffff2;box-shadow:0 10px 34px #26334b12}.card header{display:flex;align-items:center;gap:10px}.card header small{margin-left:auto;color:var(--muted)}.index{font-weight:800;color:#99a6bc}.badge{padding:4px 9px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.06em}.badge.word{color:#08765d;background:#d9f7ef}.badge.sentence{color:#294bb9;background:#e1e9ff}.card h2{margin:14px 0 8px;font:700 clamp(22px,4vw,34px)/1.25 Georgia,"Times New Roman",serif}.pronunciation{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.pronunciation span,.keywords span{padding:5px 10px;border-radius:10px;background:#eef2f8;color:#44516a}.card section{margin-top:18px}.card label{display:block;margin-bottom:5px;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.card section p{margin:0}.keywords{display:flex;flex-wrap:wrap;gap:8px}.examples{margin:8px 0 0;padding-left:22px}.examples li{padding:6px 0}.examples p{font-weight:650}.examples small{color:var(--muted)}.failed{padding:20px;border:1px solid #f0c6c6;border-radius:18px;background:#fff3f3;color:#8b3131}
                 @media(max-width:600px){main{margin-top:16px}.hero,.card{padding:22px;border-radius:20px}}
                 </style></head><body><main><header class="hero"><small>AI SCREENSHOT RECOGNITION</small>
-                <h1>技术英语识图记录</h1><p>来源：%s · %s</p><div class="stats"><span>%d 张截图</span><span>%d 条语料</span><span>状态 %s</span></div></header><section class="grid">%s</section></main></body></html>
-                """.formatted(
-                htmlText(sourceName),
-                createdAt.format(TIME_FORMATTER),
-                imageCount,
-                itemCount,
-                htmlText(status),
-                cards);
+                <h1>技术英语识图记录</h1><p>来源：__SOURCE__ · __CREATED_AT__</p><div class="stats"><span>__IMAGE_COUNT__ 张截图</span><span>__ITEM_COUNT__ 条语料</span><span>状态 __STATUS__</span></div></header><section class="grid">__CARDS__</section></main></body></html>
+                """
+                .replace("__SOURCE__", htmlText(sourceName))
+                .replace("__CREATED_AT__", createdAt.format(TIME_FORMATTER))
+                .replace("__IMAGE_COUNT__", String.valueOf(imageCount))
+                .replace("__ITEM_COUNT__", String.valueOf(itemCount))
+                .replace("__STATUS__", htmlText(status))
+                .replace("__CARDS__", cards.toString());
     }
 
     /** 追加 Markdown 字段。 */

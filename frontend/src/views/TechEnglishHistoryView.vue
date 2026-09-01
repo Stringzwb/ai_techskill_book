@@ -300,7 +300,7 @@ watch(
                     <small>{{ task.imageCount }} 张截图 · {{ task.itemCount }} 条语料</small>
                     <button type="button" class="secondary-button" @click="exportBatch(task.batchUuid, 'markdown')"><Download :size="14" />MD</button>
                     <button type="button" class="secondary-button" @click="exportBatch(task.batchUuid, 'html')"><Download :size="14" />HTML</button>
-                    <button v-if="task.status === 'RECOGNIZED'" type="button" class="primary-button" :disabled="batchImporting === task.batchUuid || !batchReady(task)" @click="importBatch(task)">
+                    <button v-if="task.status === 'RECOGNIZED'" type="button" class="primary-button" :disabled="batchImporting === task.batchUuid" @click="importBatch(task)">
                       <Check :size="14" />{{ batchImporting === task.batchUuid ? '入库中…' : '入库本批次' }}
                     </button>
                     <button v-if="task.status === 'RECOGNIZED'" type="button" class="secondary-button" :disabled="!selectedTagId" @click="fillBatchTags(task)">填充未标注</button>

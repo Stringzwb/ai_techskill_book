@@ -21,6 +21,11 @@ interface AiImagePreview {
   url: string
 }
 
+interface AiRecognitionChunk extends TechEnglishAiRecognitionResponse {
+  failed?: boolean
+  errorMessage?: string
+}
+
 const AI_MAX_IMAGES = 20
 const AI_CHUNK_SIZE = 5
 
@@ -53,9 +58,10 @@ const aiImages = ref<AiImagePreview[]>([])
 const aiDragActive = ref(false)
 const aiImporting = ref(false)
 const aiConfirming = ref(false)
+const aiRetryingChunk = ref<number | null>(null)
 const aiImportError = ref('')
 const aiSessionUuid = ref('')
-const aiRecognitionResults = ref<TechEnglishAiRecognitionResponse[]>([])
+const aiRecognitionResults = ref<AiRecognitionChunk[]>([])
 const aiImportResults = ref<TechEnglishAiImportResponse[]>([])
 const aiItemTagAssignments = reactive<Record<string, number[]>>({})
 const form = reactive<TechEnglishCorpusCreatePayload>({
@@ -183,7 +189,7 @@ function hasItemTags(itemKey: string): boolean {
 
 /** 判断单个识图批次是否已完成标签选择。 */
 function isBatchTagged(batch: TechEnglishAiRecognitionResponse): boolean {
-  return batch.items.every((item) => hasItemTags(item.itemKey))
+  return batch.items.length > 0 && batch.items.every((item) => hasItemTags(item.itemKey))
 }
 
 /** 判断全部识图结果是否都已完成标签选择。 */
@@ -430,14 +436,27 @@ async function submitAiImport(): Promise<void> {
       exampleCount: aiExampleCount.value,
       images: chunk.map((item) => item.file),
     })))
-    const results = settled
-      .filter((item): item is PromiseFulfilledResult<TechEnglishAiRecognitionResponse> => item.status === 'fulfilled')
-      .map((item) => item.value)
     const failures = settled
       .map((item, index) => (item.status === 'rejected' ? `第 ${index + 1} 组：${item.reason instanceof Error ? item.reason.message : '识别失败'}` : ''))
       .filter(Boolean)
+    const results: AiRecognitionChunk[] = settled.map((item, index) => item.status === 'fulfilled'
+      ? { ...item.value, failed: false }
+      : {
+          sessionUuid,
+          batchUuid: `retry-${sessionUuid}-${index + 1}`,
+          chunkIndex: index + 1,
+          chunkCount: chunks.length,
+          importType: 'AUTO',
+          sourceName: '技术英语识图',
+          imageCount: chunks[index].length,
+          itemCount: 0,
+          expiresAt: '',
+          items: [],
+          failed: true,
+          errorMessage: item.reason instanceof Error ? item.reason.message : '识别失败，请重试',
+        })
     aiRecognitionResults.value = results
-    results.forEach((batch) => {
+    results.filter((batch) => !batch.failed).forEach((batch) => {
       batch.items.forEach((item) => {
         if (!aiItemTagAssignments[item.itemKey]) {
           aiItemTagAssignments[item.itemKey] = []
@@ -460,9 +479,42 @@ async function submitAiImport(): Promise<void> {
   }
 }
 
-/** 用户为单个识图批次选择标签后，确认保存该批次截图和语料。 */
-async function confirmAiBatch(batch: TechEnglishAiRecognitionResponse): Promise<void> {
+/** 重试当前会话中失败的单个识别分组。 */
+async function retryAiBatch(batch: AiRecognitionChunk): Promise<void> {
+  if (!batch.failed || !aiSessionUuid.value || aiRetryingChunk.value !== null) return
+  const chunk = splitAiImages(aiImages.value, AI_CHUNK_SIZE)[batch.chunkIndex - 1]
+  if (!chunk?.length) {
+    aiImportError.value = `第 ${batch.chunkIndex} 组原始图片已不存在，无法重试`
+    return
+  }
   aiImportError.value = ''
+  aiRetryingChunk.value = batch.chunkIndex
+  try {
+    const result = await importTechEnglishScreenshots({
+      sessionUuid: aiSessionUuid.value,
+      chunkIndex: batch.chunkIndex,
+      chunkCount: batch.chunkCount,
+      scenario: aiScenario.value.trim(),
+      exampleCount: aiExampleCount.value,
+      images: chunk.map((item) => item.file),
+    })
+    const position = aiRecognitionResults.value.findIndex((item) => item.chunkIndex === batch.chunkIndex && item.failed)
+    if (position >= 0) aiRecognitionResults.value[position] = { ...result, failed: false }
+    result.items.forEach((item) => {
+      if (!aiItemTagAssignments[item.itemKey]) aiItemTagAssignments[item.itemKey] = []
+    })
+  } catch (error) {
+    batch.errorMessage = error instanceof Error ? error.message : '识别失败，请稍后重试'
+    aiImportError.value = `第 ${batch.chunkIndex} 组：${batch.errorMessage}`
+  } finally {
+    aiRetryingChunk.value = null
+  }
+}
+
+/** 用户为单个识图批次选择标签后，确认保存该批次截图和语料。 */
+async function confirmAiBatch(batch: AiRecognitionChunk): Promise<void> {
+  aiImportError.value = ''
+  if (batch.failed) return
   if (!isBatchTagged(batch)) {
     aiImportError.value = `请先为第 ${batch.chunkIndex} 组的每条识图结果选择知识标签`
     return
@@ -725,12 +777,16 @@ onBeforeUnmount(() => {
                   <span>分组 {{ batch.chunkIndex }} / {{ batch.chunkCount }}</span>
                   <div>
                     <small>{{ batch.imageCount }} 张截图 · {{ batch.itemCount }} 条语料</small>
-                    <button class="secondary-button" type="button" :disabled="aiConfirming || !isBatchTagged(batch)" @click="confirmAiBatch(batch)">
+                    <button v-if="batch.failed" class="secondary-button" type="button" :disabled="aiRetryingChunk !== null" @click="retryAiBatch(batch)">
+                      <RotateCcw :size="15" />{{ aiRetryingChunk === batch.chunkIndex ? '重试中…' : '重试本组' }}
+                    </button>
+                    <button v-else class="secondary-button" type="button" :disabled="aiConfirming" @click="confirmAiBatch(batch)">
                       <Check :size="15" />{{ aiConfirming ? '入库中…' : '确认本组入库' }}
                     </button>
                   </div>
                 </header>
-                <div class="tech-english-ai-review__list">
+                <p v-if="batch.failed" class="tech-english-ai-message tech-english-ai-message--error">{{ batch.errorMessage || '本组识别失败，可单独重试。' }}</p>
+                <div v-else class="tech-english-ai-review__list">
                   <article v-for="item in batch.items" :key="item.itemKey" class="tech-english-ai-item">
                     <header>
                       <span>截图 {{ item.sourceImageIndex }}</span>
