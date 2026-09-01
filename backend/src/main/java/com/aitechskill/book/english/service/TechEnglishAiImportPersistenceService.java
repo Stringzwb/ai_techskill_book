@@ -149,7 +149,7 @@ public class TechEnglishAiImportPersistenceService {
             corpus.setTranslationText(trimToNull(item.meaning(), 5000));
             corpus.setTranslationStatus(StringUtils.hasText(corpus.getTranslationText()) ? "READY" : "NONE");
             corpusMapper.insert(corpus);
-            corpusMapper.insertTagLinks(corpus.getId(), tagIds);
+            if (!tagIds.isEmpty()) corpusMapper.insertTagLinks(corpus.getId(), tagIds);
             saveVocabularyExamples(corpus.getId(), examples, userId);
             createdIds.add(corpus.getId());
         }
@@ -193,7 +193,7 @@ public class TechEnglishAiImportPersistenceService {
             corpus.setKeyVocabularyJson(toJson(keyVocabulary));
             corpus.setPatternExamplesJson(toJson(patternExamples));
             corpusMapper.insert(corpus);
-            corpusMapper.insertTagLinks(corpus.getId(), tagIds);
+            if (!tagIds.isEmpty()) corpusMapper.insertTagLinks(corpus.getId(), tagIds);
             createdIds.add(corpus.getId());
         }
         return loadCreated(createdIds);
@@ -310,20 +310,18 @@ public class TechEnglishAiImportPersistenceService {
         return items;
     }
 
-    /** 校验知识标签。 */
+    /** 校验已选择的知识标签。 */
     private void validateTagIds(List<Long> tagIds) {
-        if (tagIds == null || tagIds.isEmpty() || tagIds.size() > 20
+        if (tagIds == null || tagIds.size() > 20
                 || corpusMapper.countActiveTags(tagIds) != tagIds.size()) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TAG_INVALID", "请选择有效的知识标签");
         }
     }
 
-    /** 读取并校验单条语料的标签。 */
+    /** 读取并校验单条语料的可选标签。 */
     private List<Long> requireTagIds(Map<String, List<Long>> itemTagAssignments, String itemKey) {
         List<Long> tagIds = itemTagAssignments.get(itemKey);
-        if (tagIds == null || tagIds.isEmpty()) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TAG_REQUIRED", "请选择有效的知识标签");
-        }
+        if (tagIds == null || tagIds.isEmpty()) return List.of();
         validateTagIds(tagIds);
         return tagIds;
     }

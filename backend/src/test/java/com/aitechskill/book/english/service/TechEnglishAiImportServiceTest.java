@@ -280,6 +280,30 @@ class TechEnglishAiImportServiceTest {
         verify(draftStore).complete(batchUuid);
     }
 
+    /** 未选择知识标签时也可以确认入库。 */
+    @Test
+    void confirmsDraftWithoutTags() {
+        String batchUuid = UUID.randomUUID().toString();
+        MockMultipartFile image = image("confirm-without-tags.png", 15);
+        TechEnglishAiImportDraft draft = draft(batchUuid, image);
+        given(draftStore.require(batchUuid, 7L)).willReturn(draft);
+        given(draftStore.acquireConfirmation(batchUuid, 7L)).willReturn(true);
+        given(imageStorageService.save(7L, image)).willReturn(stored("confirm-without-tags.png"));
+        given(persistenceService.saveAuto(
+                anyString(), any(), anyList(), anyMap(), anyString(), any(), anyInt(), anyLong()))
+                .willReturn(List.of());
+
+        String itemKey = TechEnglishAiRecognitionItemKey.create("VOCABULARY", 1, "meticulous");
+        var response = service.confirmImport(batchUuid, "[]", List.of(image), 7L);
+
+        verify(persistenceService).saveAuto(
+                anyString(), any(), anyList(),
+                org.mockito.ArgumentMatchers.eq(java.util.Map.of(itemKey, List.of())),
+                anyString(), any(), anyInt(), anyLong());
+        assertThat(response.batchUuid()).isEqualTo(batchUuid);
+        verify(draftStore).complete(batchUuid);
+    }
+
     /** 确认入库失败时清理本次已上传对象并释放确认锁。 */
     @Test
     void deletesStoredImagesWhenConfirmationFails() {

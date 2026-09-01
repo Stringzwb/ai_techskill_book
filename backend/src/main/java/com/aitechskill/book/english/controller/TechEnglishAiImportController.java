@@ -65,12 +65,12 @@ public class TechEnglishAiImportController {
                 UserContextHolder.requireUserId());
     }
 
-    /** 用户确认识别结果并选择标签后，保存截图并正式创建语料。 */
+    /** 用户确认识别结果后，保存截图并正式创建语料；知识标签可以不选。 */
     @PostMapping(value = "/screenshots/{batchUuid}/confirm", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public TechEnglishAiImportResponse confirmImport(
             @PathVariable String batchUuid,
             @RequestParam String itemTagAssignments,
-            @RequestPart("images") List<MultipartFile> images) {
+            @RequestPart(value = "images", required = false) List<MultipartFile> images) {
         return importService.confirmImport(
                 batchUuid,
                 itemTagAssignments,

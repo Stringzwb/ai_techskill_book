@@ -189,7 +189,7 @@ function hasItemTags(itemKey: string): boolean {
 
 /** 判断单个识图批次是否已完成标签选择。 */
 function isBatchTagged(batch: TechEnglishAiRecognitionResponse): boolean {
-  return batch.items.length > 0 && batch.items.every((item) => hasItemTags(item.itemKey))
+  return batch.items.length > 0
 }
 
 /** 判断全部识图结果是否都已完成标签选择。 */
@@ -656,7 +656,7 @@ onBeforeUnmount(() => {
         <div>
           <span><Sparkles :size="14" /> AI SCREENSHOT IMPORT</span>
           <h2 id="tech-english-ai-title">上传与自动分类</h2>
-          <p>最多 20 张截图，每组 5 张，自动拆成最多 4 个并发识别任务。每条结果都要单独选标签，确认后才会入库。</p>
+          <p>最多 20 张截图，每组 5 张，自动拆成最多 4 个并发识别任务。知识标签可选，每条结果都可以单独绑定。</p>
         </div>
         <div class="tech-english-ai-source">
           <small>当前来源</small>
@@ -749,7 +749,7 @@ onBeforeUnmount(() => {
             </header>
 
             <section class="tech-english-ai-tag-picker tech-english-ai-tag-picker--batch">
-              <label>当前标签
+              <label>知识标签树
                 <div class="tech-english-tag-search">
                   <Search :size="16" />
                   <input v-model="aiTagSearch" maxlength="80" placeholder="搜索并选择一个标签" @input="selectedAiTagId = null" />
@@ -757,14 +757,14 @@ onBeforeUnmount(() => {
               </label>
               <p v-if="tagLoading" class="tech-english-tag-state">正在加载标签...</p>
               <p v-else-if="tagError" class="tech-english-tag-state tech-english-tag-state--error">{{ tagError }}</p>
-              <div v-else-if="aiTagSearch && !selectedAiTag" class="tech-english-ai-tag-options">
+              <div v-else-if="!selectedAiTag" class="tech-english-ai-tag-options">
                 <button v-for="tag in filteredAiTags" :key="tag.id" type="button" @click="selectAiTag(tag)"><span>{{ tag.path }}</span></button>
               </div>
               <button v-if="selectedAiTag" class="tech-english-ai-selected-tag" type="button" title="重新选择知识标签" @click="selectedAiTagId = null">
                 <Check :size="14" /><span>{{ selectedAiTag.path }}</span><X :size="13" />
               </button>
               <footer class="tech-english-ai-tag-picker__actions">
-                <p>先选中一个当前标签，再逐条补充；也可以一键填充到所有未标注项。</p>
+                <p>标签可不选；选中标签后可逐条追加，也可以一键填充到所有未标注项。</p>
                 <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="fillCurrentTagToUnassignedItems">
                   <Check :size="16" />填充到未标注项
                 </button>

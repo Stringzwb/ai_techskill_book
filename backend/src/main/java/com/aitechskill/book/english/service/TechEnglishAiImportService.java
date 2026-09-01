@@ -46,7 +46,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 识别截图时持久化原图和 AI 结果，用户确认标签后再将语料正式入库。
+ * 识别截图时持久化原图和 AI 结果，用户确认后再将语料正式入库，知识标签可选。
  */
 @Service
 @ConditionalOnProperty(name = "app.ai.enabled", havingValue = "true")
@@ -634,26 +634,28 @@ public class TechEnglishAiImportService {
         return normalized;
     }
 
-    /** 去重并校验确认阶段的标签基本格式。 */
+    /** 去重并校验确认阶段的可选标签格式。 */
     private List<Long> normalizeTagIds(List<Long> tagIds) {
-        if (tagIds == null) {
-            throw badRequest("TECH_ENGLISH_TAG_REQUIRED", "请选择知识标签后再确认入库");
-        }
+        if (tagIds == null) return List.of();
         List<Long> normalized = new LinkedHashSet<>(tagIds).stream()
                 .filter(value -> value != null && value > 0)
                 .toList();
-        if (normalized.isEmpty() || normalized.size() > 20) {
-            throw badRequest("TECH_ENGLISH_TAG_REQUIRED", "请选择 1 到 20 个知识标签后再确认入库");
+        if (normalized.size() > 20) {
+            throw badRequest("TECH_ENGLISH_TAG_INVALID", "每条识图结果最多选择 20 个知识标签");
         }
         return normalized;
     }
 
-    /** 解析并校验每条识图语料的独立标签。 */
+    /** 解析每条识图语料的独立可选标签。 */
     private Map<String, List<Long>> normalizeItemTagAssignments(
             String json,
             List<TechEnglishAiRecognitionItemResponse> items) {
+        Set<String> expectedKeys = items.stream()
+                .map(TechEnglishAiRecognitionItemResponse::itemKey)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
         if (!StringUtils.hasText(json)) {
-            throw badRequest("TECH_ENGLISH_TAG_REQUIRED", "请为每条识图结果选择知识标签");
+            return expectedKeys.stream().collect(java.util.stream.Collectors.toMap(
+                    key -> key, key -> List.of(), (left, right) -> left, LinkedHashMap::new));
         }
         List<TechEnglishAiItemTagAssignment> assignments;
         try {
@@ -661,9 +663,7 @@ public class TechEnglishAiImportService {
         } catch (JsonProcessingException exception) {
             throw badRequest("TECH_ENGLISH_TAG_INVALID", "识图结果的标签选择不正确");
         }
-        Set<String> expectedKeys = items.stream()
-                .map(TechEnglishAiRecognitionItemResponse::itemKey)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+        if (assignments == null) assignments = List.of();
         Map<String, List<Long>> normalized = new LinkedHashMap<>();
         for (TechEnglishAiItemTagAssignment assignment : assignments) {
             if (assignment == null || !expectedKeys.contains(assignment.itemKey())
@@ -672,9 +672,7 @@ public class TechEnglishAiImportService {
             }
             normalized.put(assignment.itemKey(), normalizeTagIds(assignment.tagIds()));
         }
-        if (!normalized.keySet().equals(expectedKeys)) {
-            throw badRequest("TECH_ENGLISH_TAG_REQUIRED", "请为每条识图结果选择知识标签");
-        }
+        expectedKeys.forEach(key -> normalized.putIfAbsent(key, List.of()));
         return Map.copyOf(normalized);
     }
 

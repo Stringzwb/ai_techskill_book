@@ -77,15 +77,15 @@ function fillBatchTags(task: TechEnglishRecognitionHistoryTask): void {
   })
 }
 
-/** 判断一个批次是否具备入库所需的全部标签。 */
+/** 判断一个批次是否存在可入库的识别结果。 */
 function batchReady(task: TechEnglishRecognitionHistoryTask): boolean {
-  return task.status === 'RECOGNIZED' && task.items.length > 0 && task.items.every((item) => Boolean(itemTagAssignments[item.itemKey]?.length))
+  return task.status === 'RECOGNIZED' && task.items.length > 0
 }
 
 /** 从永久记录确认一个批次，服务端会复用识别时保存的原图。 */
 async function importBatch(task: TechEnglishRecognitionHistoryTask): Promise<void> {
   if (!batchReady(task)) {
-    detailError.value = '请为该批次的每条识图结果选择至少一个知识标签'
+    detailError.value = '该批次没有可入库的识别结果'
     return
   }
   batchImporting.value = task.batchUuid
@@ -273,20 +273,20 @@ watch(
           </section>
 
           <section class="tech-english-ai-tag-picker tech-english-ai-tag-picker--batch">
-            <label>历史批次入库标签
+            <label>知识标签树
               <div class="tech-english-tag-search">
                 <Search :size="16" />
                 <input v-model="tagSearch" maxlength="80" placeholder="搜索并选择一个标签" @input="refreshTagOptions" />
                 <button v-if="selectedTagId" type="button" title="清除当前标签" aria-label="清除当前标签" @click="selectedTagId = null; tagSearch = ''; refreshTagOptions()"><X :size="14" /></button>
               </div>
             </label>
-            <div v-if="tagSearch && !selectedTagId" class="tech-english-ai-tag-options">
+            <div v-if="!selectedTagId" class="tech-english-ai-tag-options">
               <button v-for="tag in filteredTags" :key="tag.id" type="button" @click="selectTag(tag)"><span>{{ tag.path }}</span></button>
             </div>
             <button v-if="selectedTagId" class="tech-english-ai-selected-tag" type="button" @click="selectedTagId = null; tagSearch = ''; refreshTagOptions()">
               <Check :size="14" /><span>{{ tagPath(selectedTagId) }}</span><X :size="13" />
             </button>
-            <small>选中标签后，可在每条结果上单独追加，也可填充到当前批次未标注项。</small>
+            <small>标签可不选；选中标签后，可在每条结果上单独追加，也可填充到当前批次未标注项。</small>
           </section>
 
           <div class="tech-english-history-timeline">
