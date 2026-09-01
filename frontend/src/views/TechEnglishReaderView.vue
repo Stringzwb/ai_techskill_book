@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ArrowLeft, BookOpenText, CalendarDays, ExternalLink } from '@lucide/vue'
+import { ArrowLeft, BookOpenText, CalendarDays, ExternalLink, Quote, Sparkles, Volume2 } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import MarkdownContent from '../components/MarkdownContent.vue'
 import { fetchTechEnglishCorpusDetail } from '../services/techEnglish'
@@ -81,6 +81,7 @@ onMounted(loadCorpus)
             <a v-if="corpus.sourceUrl" :href="corpus.sourceUrl" target="_blank" rel="noopener noreferrer">
               <ExternalLink :size="15" />{{ corpus.sourceName || '来源' }}
             </a>
+            <span v-else-if="corpus.sourceName">来源 · {{ corpus.sourceName }}</span>
           </div>
         </div>
       </header>
@@ -88,7 +89,33 @@ onMounted(loadCorpus)
         <section v-if="corpus.englishText" class="tech-english-detail-block">
           <small>ENGLISH</small>
           <p class="tech-english-detail-english">{{ corpus.englishText }}</p>
-          <span v-if="corpus.phonetic">{{ corpus.phonetic }}</span>
+          <div v-if="corpus.partOfSpeech || corpus.britishPhonetic || corpus.americanPhonetic" class="tech-english-pronunciations">
+            <strong v-if="corpus.partOfSpeech">{{ corpus.partOfSpeech }}</strong>
+            <span v-if="corpus.britishPhonetic"><Volume2 :size="14" />英 {{ corpus.britishPhonetic }}</span>
+            <span v-if="corpus.americanPhonetic"><Volume2 :size="14" />美 {{ corpus.americanPhonetic }}</span>
+          </div>
+          <span v-else-if="corpus.phonetic">{{ corpus.phonetic }}</span>
+        </section>
+        <section v-if="corpus.sentencePattern" class="tech-english-detail-block tech-english-pattern-card">
+          <small><Quote :size="14" /> CLASSIC PATTERN</small>
+          <h2>{{ corpus.sentencePattern }}</h2>
+          <p v-if="corpus.sentencePatternExplanation">{{ corpus.sentencePatternExplanation }}</p>
+        </section>
+        <section v-if="corpus.keyVocabulary.length" class="tech-english-detail-block">
+          <small><Sparkles :size="14" /> KEY VOCABULARY</small>
+          <div class="tech-english-keyword-grid">
+            <article v-for="word in corpus.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`">
+              <header><strong>{{ word.word }}</strong><span v-if="word.partOfSpeech">{{ word.partOfSpeech }}</span></header>
+              <p v-if="word.meaning">{{ word.meaning }}</p>
+            </article>
+          </div>
+        </section>
+        <section v-if="corpus.patternExamples.length" class="tech-english-detail-block tech-english-example-detail">
+          <small>PATTERN EXAMPLES</small>
+          <div v-for="(example, index) in corpus.patternExamples" :key="index" class="tech-english-example-detail__item">
+            <p class="tech-english-detail-english">{{ example.englishText }}</p>
+            <span v-if="example.translationText">{{ example.translationText }}</span>
+          </div>
         </section>
         <section v-if="corpus.translationText" class="tech-english-detail-block">
           <small>TRANSLATION</small>
@@ -102,9 +129,9 @@ onMounted(loadCorpus)
             <RouterLink v-if="example.sentenceCorpusId" :to="`/tech-english/${example.sentenceCorpusId}`">已同步到句子语料</RouterLink>
           </div>
         </section>
-        <figure v-if="corpus.corpusType === 'IMAGE' && corpus.imageUrl" class="tech-english-detail-image">
+        <figure v-if="corpus.imageUrl" class="tech-english-detail-image">
           <img :src="corpus.imageUrl" :alt="corpus.imageAlt || corpus.title" />
-          <figcaption v-if="corpus.imageAlt">{{ corpus.imageAlt }}</figcaption>
+          <figcaption>{{ corpus.imageAlt || '语料来源截图' }}</figcaption>
         </figure>
         <MarkdownContent v-if="corpus.articleMarkdown" :markdown="corpus.articleMarkdown" />
       </main>

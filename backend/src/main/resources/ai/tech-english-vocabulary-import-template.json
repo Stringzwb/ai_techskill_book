@@ -1,0 +1,19 @@
+{
+  "templateType": "MINT_VOCABULARY_IMPORT_V1",
+  "items": [
+    {
+      "sourceImageIndex": 1,
+      "word": "string",
+      "partOfSpeech": "string or null",
+      "meaning": "string",
+      "britishPhonetic": "IPA string or null",
+      "americanPhonetic": "IPA string or null",
+      "examples": [
+        {
+          "englishText": "string",
+          "translationText": "string"
+        }
+      ]
+    }
+  ]
+}

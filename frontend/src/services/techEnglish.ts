@@ -1,5 +1,5 @@
 import { apiRequest } from './http'
-import type { TechEnglishCorpusCreatePayload, TechEnglishCorpusDetail, TechEnglishCorpusPage, TechEnglishCorpusType } from '../types'
+import type { TechEnglishAiConfirmPayload, TechEnglishAiImportPayload, TechEnglishAiImportResponse, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusDetail, TechEnglishCorpusPage, TechEnglishCorpusType } from '../types'
 
 /** 查询已发布技术英语语料。 */
 export function fetchTechEnglishCorpus(params: {
@@ -46,6 +46,30 @@ export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload)
   })
   if (payload.syncExamplesToSentences) body.append('syncExamplesToSentences', 'true')
   return apiRequest<TechEnglishCorpusDetail>('/api/tech-english/corpus', {
+    method: 'POST',
+    body,
+  })
+}
+
+/** 上传最多十张截图，由 AI 识别并返回等待确认的草稿。 */
+export function importTechEnglishScreenshots(payload: TechEnglishAiImportPayload): Promise<TechEnglishAiRecognitionResponse> {
+  const body = new FormData()
+  body.append('importType', payload.importType)
+  body.append('scenario', payload.scenario)
+  body.append('exampleCount', String(payload.exampleCount))
+  payload.images.forEach((image) => body.append('images', image))
+  return apiRequest<TechEnglishAiRecognitionResponse>('/api/tech-english/imports/screenshots', {
+    method: 'POST',
+    body,
+  })
+}
+
+/** 选择知识标签后确认识别草稿，正式保存截图和语料。 */
+export function confirmTechEnglishScreenshotImport(payload: TechEnglishAiConfirmPayload): Promise<TechEnglishAiImportResponse> {
+  const body = new FormData()
+  payload.tagIds.forEach((tagId) => body.append('tagIds', String(tagId)))
+  payload.images.forEach((image) => body.append('images', image))
+  return apiRequest<TechEnglishAiImportResponse>(`/api/tech-english/imports/screenshots/${payload.batchUuid}/confirm`, {
     method: 'POST',
     body,
   })

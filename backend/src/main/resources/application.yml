@@ -90,6 +90,26 @@ management:
 
   # 业务配置。
 app:
+  # LangChain4j 文字和视觉对话配置，默认关闭。
+  ai:
+    # 是否启用备用 AI 接口。
+    enabled: ${AI_ENABLED:false}
+    # OpenAI 兼容 API 根地址，LangChain4j 使用 Chat Completions 协议。
+    base-url: ${AI_BASE_URL:https://www.bb-api.com/v1}
+    # 文字和图片对话共用模型。
+    model: ${AI_MODEL:gpt-5.5}
+    # 主用 API Key，只允许从运行时环境注入。
+    primary-api-key: ${AI_PRIMARY_API_KEY:}
+    # 备用 API Key，主 Key 调用失败时自动切换。
+    secondary-api-key: ${AI_SECONDARY_API_KEY:}
+    # 单次模型请求超时时间。
+    timeout: ${AI_TIMEOUT:180s}
+    # 每个 Key 的 SDK 内部重试次数，主备切换由业务层处理。
+    max-retries: ${AI_MAX_RETRIES:0}
+    # 单次回答最大 Token 数。
+    max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:8000}
+    # 视觉接口允许的最大图片体积。
+    image-max-size: ${AI_IMAGE_MAX_SIZE:10MB}
   # 文档正文和异步索引配置。
   document:
     # 仅首次迁移历史对象存储正文时开启，完成后必须关闭。
@@ -158,6 +178,17 @@ app:
     attachment-max-size: ${COMMUNITY_ATTACHMENT_MAX_SIZE:300MB}
     image-max-size: ${COMMUNITY_IMAGE_MAX_SIZE:20MB}
     preview-max-size: ${COMMUNITY_PREVIEW_MAX_SIZE:20MB}
+  # 技术英语 AI 截图导入配置。
+  tech-english:
+    ai-import:
+      # 当前允许的固定来源，后续可扩展为来源列表。
+      source-name: ${TECH_ENGLISH_IMPORT_SOURCE_NAME:薄荷阅读}
+      # 单次导入最大截图数。
+      max-images: ${TECH_ENGLISH_IMPORT_MAX_IMAGES:10}
+      # 单条语料允许 AI 生成的最大例句数。
+      max-example-count: ${TECH_ENGLISH_IMPORT_MAX_EXAMPLES:5}
+      # 识别结果等待用户确认的有效期。
+      draft-ttl: ${TECH_ENGLISH_IMPORT_DRAFT_TTL:30m}
   # 微信等外部平台抓取分享信息时使用的公开站点地址。
   share:
     public-base-url: ${PUBLIC_BASE_URL:https://38.22.90.174}

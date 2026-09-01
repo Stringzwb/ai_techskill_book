@@ -11,10 +11,15 @@ import com.aitechskill.book.english.domain.request.TechEnglishVocabularyExampleR
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusPageResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusSummaryResponse;
+import com.aitechskill.book.english.domain.response.TechEnglishKeyVocabularyResponse;
+import com.aitechskill.book.english.domain.response.TechEnglishPatternExampleResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishVocabularyExampleResponse;
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
 import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
@@ -44,14 +49,17 @@ public class TechEnglishCorpusService {
     private final TechEnglishCorpusMapper corpusMapper;
     private final TechEnglishVocabularyExampleMapper vocabularyExampleMapper;
     private final TechEnglishImageStorageService imageStorageService;
+    private final ObjectMapper objectMapper;
 
     public TechEnglishCorpusService(
             TechEnglishCorpusMapper corpusMapper,
             TechEnglishVocabularyExampleMapper vocabularyExampleMapper,
-            TechEnglishImageStorageService imageStorageService) {
+            TechEnglishImageStorageService imageStorageService,
+            ObjectMapper objectMapper) {
         this.corpusMapper = corpusMapper;
         this.vocabularyExampleMapper = vocabularyExampleMapper;
         this.imageStorageService = imageStorageService;
+        this.objectMapper = objectMapper;
     }
 
     /** 查询已发布语料并附加知识标签摘要。 */
@@ -142,7 +150,7 @@ public class TechEnglishCorpusService {
     @Transactional(readOnly = true)
     public TechEnglishImageContent getPublishedImage(long id) {
         TechEnglishCorpusEntity corpus = corpusMapper.selectPublishedById(id);
-        if (corpus == null || !"IMAGE".equals(corpus.getCorpusType()) || !StringUtils.hasText(corpus.getImageObjectKey())) {
+        if (corpus == null || !StringUtils.hasText(corpus.getImageObjectKey())) {
             throw new BusinessException(HttpStatus.NOT_FOUND, "TECH_ENGLISH_IMAGE_NOT_FOUND", "图片语料不存在");
         }
         return imageStorageService.open(corpus.getImageObjectKey());
@@ -434,6 +442,9 @@ public class TechEnglishCorpusService {
                 corpus.getTitle(),
                 corpus.getEnglishText(),
                 corpus.getPhonetic(),
+                corpus.getPartOfSpeech(),
+                corpus.getBritishPhonetic(),
+                corpus.getAmericanPhonetic(),
                 corpus.getExplanation(),
                 imageUrl(corpus),
                 corpus.getImageAlt(),
@@ -463,6 +474,9 @@ public class TechEnglishCorpusService {
                 corpus.getTitle(),
                 corpus.getEnglishText(),
                 corpus.getPhonetic(),
+                corpus.getPartOfSpeech(),
+                corpus.getBritishPhonetic(),
+                corpus.getAmericanPhonetic(),
                 corpus.getExplanation(),
                 corpus.getArticleMarkdown(),
                 imageUrl(corpus),
@@ -473,6 +487,14 @@ public class TechEnglishCorpusService {
                 corpus.getDifficulty(),
                 corpus.getTags(),
                 corpus.getTranslationText(),
+                corpus.getSentencePattern(),
+                corpus.getSentencePatternExplanation(),
+                readJsonList(
+                        corpus.getKeyVocabularyJson(),
+                        new TypeReference<List<TechEnglishKeyVocabularyResponse>>() {}),
+                readJsonList(
+                        corpus.getPatternExamplesJson(),
+                        new TypeReference<List<TechEnglishPatternExampleResponse>>() {}),
                 corpus.getPublishedAt(),
                 corpus.getUpdatetime(),
                 tags,
@@ -485,5 +507,21 @@ public class TechEnglishCorpusService {
             return "/api/tech-english/corpus/" + corpus.getId() + "/image";
         }
         return corpus.getImageUrl();
+    }
+
+    /** 解析语料中的结构化 JSON 列表。 */
+    private <T> List<T> readJsonList(String json, TypeReference<List<T>> type) {
+        if (!StringUtils.hasText(json)) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(json, type);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "TECH_ENGLISH_JSON_INVALID",
+                    "语料结构化内容无法读取",
+                    exception);
+        }
     }
 }

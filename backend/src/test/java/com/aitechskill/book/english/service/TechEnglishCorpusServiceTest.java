@@ -16,6 +16,7 @@ import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailRespo
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
 import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
 import com.aitechskill.book.storage.domain.StoredObject;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,11 @@ class TechEnglishCorpusServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new TechEnglishCorpusService(corpusMapper, vocabularyExampleMapper, imageStorageService);
+        service = new TechEnglishCorpusService(
+                corpusMapper,
+                vocabularyExampleMapper,
+                imageStorageService,
+                new ObjectMapper());
     }
 
     /** 验证主站轻收录会发布语料并绑定知识标签。 */

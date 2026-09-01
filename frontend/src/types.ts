@@ -113,6 +113,9 @@ export interface TechEnglishCorpusSummary {
   title: string
   englishText: string | null
   phonetic: string | null
+  partOfSpeech: string | null
+  britishPhonetic: string | null
+  americanPhonetic: string | null
   explanation: string | null
   imageUrl: string | null
   imageAlt: string | null
@@ -138,8 +141,25 @@ export interface TechEnglishCorpusDetail extends TechEnglishCorpusSummary {
   articleMarkdown: string | null
   sourceName: string | null
   sourceUrl: string | null
+  sentencePattern: string | null
+  sentencePatternExplanation: string | null
+  keyVocabulary: TechEnglishKeyVocabulary[]
+  patternExamples: TechEnglishPatternExample[]
   updatedAt: string
   vocabularyExamples: TechEnglishVocabularyExample[]
+}
+
+/** 句子语料中的重点词汇。 */
+export interface TechEnglishKeyVocabulary {
+  word: string
+  partOfSpeech: string | null
+  meaning: string | null
+}
+
+/** 经典句式的扩展例句。 */
+export interface TechEnglishPatternExample {
+  englishText: string
+  translationText: string | null
 }
 
 /** 技术英语词汇例句。 */
@@ -174,6 +194,59 @@ export interface TechEnglishCorpusCreatePayload {
   tagIds: number[]
   vocabularyExamples?: TechEnglishVocabularyExampleInput[]
   syncExamplesToSentences?: boolean
+}
+
+/** AI 截图识别类型。 */
+export type TechEnglishAiImportType = 'VOCABULARY' | 'SENTENCE'
+
+/** AI 截图导入请求。 */
+export interface TechEnglishAiImportPayload {
+  importType: TechEnglishAiImportType
+  scenario: string
+  exampleCount: number
+  images: File[]
+}
+
+/** 等待用户确认的单条截图识别结果。 */
+export interface TechEnglishAiRecognitionItem {
+  sourceImageIndex: number
+  englishText: string
+  partOfSpeech: string | null
+  translationText: string | null
+  britishPhonetic: string | null
+  americanPhonetic: string | null
+  sentencePattern: string | null
+  sentencePatternExplanation: string | null
+  keyVocabulary: TechEnglishKeyVocabulary[]
+  examples: TechEnglishPatternExample[]
+}
+
+/** AI 截图识别草稿，选择标签确认后才正式入库。 */
+export interface TechEnglishAiRecognitionResponse {
+  batchUuid: string
+  importType: TechEnglishAiImportType
+  sourceName: string
+  imageCount: number
+  itemCount: number
+  expiresAt: string
+  items: TechEnglishAiRecognitionItem[]
+}
+
+/** AI 识别草稿确认入库请求。 */
+export interface TechEnglishAiConfirmPayload {
+  batchUuid: string
+  tagIds: number[]
+  images: File[]
+}
+
+/** AI 截图导入结果。 */
+export interface TechEnglishAiImportResponse {
+  batchUuid: string
+  importType: TechEnglishAiImportType
+  sourceName: string
+  imageCount: number
+  createdCount: number
+  items: TechEnglishCorpusDetail[]
 }
 
 export type CommunityPostType = 'QUESTION' | 'IMAGE' | 'LINK' | 'FILE' | 'VOTE'

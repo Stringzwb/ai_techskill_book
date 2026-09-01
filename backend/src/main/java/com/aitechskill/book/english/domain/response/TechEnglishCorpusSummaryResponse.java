@@ -12,6 +12,9 @@ import java.util.List;
  * @param title 语料标题
  * @param englishText 英文文本摘要
  * @param phonetic 音标或发音提示
+ * @param partOfSpeech 词性
+ * @param britishPhonetic 英式音标
+ * @param americanPhonetic 美式音标
  * @param explanation 人工说明
  * @param imageUrl 图片访问地址
  * @param imageAlt 图片替代文本
@@ -28,6 +31,9 @@ public record TechEnglishCorpusSummaryResponse(
         String title,
         String englishText,
         String phonetic,
+        String partOfSpeech,
+        String britishPhonetic,
+        String americanPhonetic,
         String explanation,
         String imageUrl,
         String imageAlt,

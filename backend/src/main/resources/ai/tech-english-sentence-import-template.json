@@ -1,0 +1,25 @@
+{
+  "templateType": "MINT_SENTENCE_IMPORT_V1",
+  "items": [
+    {
+      "sourceImageIndex": 1,
+      "sentence": "string",
+      "translation": "string",
+      "keyVocabulary": [
+        {
+          "word": "string",
+          "partOfSpeech": "string or null",
+          "meaning": "string"
+        }
+      ],
+      "classicPattern": "string",
+      "patternExplanation": "string",
+      "patternExamples": [
+        {
+          "englishText": "string",
+          "translationText": "string"
+        }
+      ]
+    }
+  ]
+}

@@ -35,6 +35,15 @@ public class TechEnglishCorpusEntity extends BaseEntity {
     /** 音标或发音提示。 */
     private String phonetic;
 
+    /** 词性。 */
+    private String partOfSpeech;
+
+    /** 英式音标。 */
+    private String britishPhonetic;
+
+    /** 美式音标。 */
+    private String americanPhonetic;
+
     /** 人工说明。 */
     private String explanation;
 
@@ -67,6 +76,24 @@ public class TechEnglishCorpusEntity extends BaseEntity {
 
     /** 翻译文本。 */
     private String translationText;
+
+    /** 经典句式。 */
+    private String sentencePattern;
+
+    /** 经典句式解析。 */
+    private String sentencePatternExplanation;
+
+    /** 句子重点词汇 JSON。 */
+    private String keyVocabularyJson;
+
+    /** 经典句式例句 JSON。 */
+    private String patternExamplesJson;
+
+    /** AI 截图导入批次标识。 */
+    private String importBatchUuid;
+
+    /** 来源截图序号。 */
+    private Integer sourceImageIndex;
 
     /** 翻译状态。 */
     private String translationStatus;
