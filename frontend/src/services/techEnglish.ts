@@ -54,7 +54,6 @@ export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload)
 /** 上传最多十张截图，由 AI 识别并返回等待确认的草稿。 */
 export function importTechEnglishScreenshots(payload: TechEnglishAiImportPayload): Promise<TechEnglishAiRecognitionResponse> {
   const body = new FormData()
-  body.append('importType', payload.importType)
   body.append('scenario', payload.scenario)
   body.append('exampleCount', String(payload.exampleCount))
   payload.images.forEach((image) => body.append('images', image))

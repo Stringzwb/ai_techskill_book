@@ -6,6 +6,7 @@ import java.util.List;
  * 等待用户确认的单条截图识别结果。
  *
  * @param sourceImageIndex 来源截图序号
+ * @param corpusType AI 自动判定的语料类型
  * @param englishText 生词或经典句子
  * @param partOfSpeech 词性
  * @param translationText 中文释义或翻译
@@ -18,6 +19,7 @@ import java.util.List;
  */
 public record TechEnglishAiRecognitionItemResponse(
         int sourceImageIndex,
+        String corpusType,
         String englishText,
         String partOfSpeech,
         String translationText,

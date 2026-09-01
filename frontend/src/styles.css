@@ -302,6 +302,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-ai-modes > button span { min-width: 0; display: grid; gap: 4px; }
 .tech-english-ai-modes > button strong { color: var(--text); font-size: 13px; }
 .tech-english-ai-modes > button small { color: var(--subtle); font-size: 10px; line-height: 1.45; }
+.tech-english-ai-auto-mode { width: 100%; min-height: 78px; padding: 13px; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 10px; color: var(--primary); border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border)); border-radius: 9px; background: var(--primary-soft); box-shadow: 0 8px 20px rgba(23, 52, 43, .055); }
+.tech-english-ai-auto-mode span { min-width: 0; display: grid; gap: 4px; }
+.tech-english-ai-auto-mode strong { color: var(--text); font-size: 13px; }
+.tech-english-ai-auto-mode small { color: var(--subtle); font-size: 10px; line-height: 1.45; }
+.tech-english-ai-config-summary { padding: 11px 12px; display: grid; gap: 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.tech-english-ai-config-summary p { margin: 0; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 7px; color: var(--subtle); font-size: 10px; line-height: 1.5; }
+.tech-english-ai-config-summary strong { display: block; color: var(--text); font-size: 11px; }
 .tech-english-ai-flow { margin-top: 13px; padding-top: 17px; display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px 8px; border-top: 1px solid var(--border); }
 .tech-english-ai-flow span { width: 22px; height: 22px; display: grid; place-items: center; color: var(--accent); border-radius: 50%; background: var(--accent-soft); font-size: 10px; font-weight: 800; }
 .tech-english-ai-flow p { margin: 2px 0 0; color: var(--subtle); font-size: 10px; line-height: 1.6; }
@@ -720,7 +727,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .reader-meta { gap: 10px; }
   .reader-meta .share-trigger { width: 100%; justify-content: flex-start; }
   .tech-english-heading-actions { width: 100%; align-items: stretch; flex-direction: column; }
-  .tech-english-heading-actions .primary-button { width: 100%; }
+  .tech-english-heading-actions .primary-button, .tech-english-heading-actions .secondary-button { width: 100%; }
   .tech-english-composer__compact { grid-template-columns: 1fr; }
   .tech-english-example-row { grid-template-columns: 1fr 36px; }
   .tech-english-example-row textarea:first-child { grid-column: 1 / -1; }

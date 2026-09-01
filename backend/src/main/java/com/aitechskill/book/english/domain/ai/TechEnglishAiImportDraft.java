@@ -8,7 +8,7 @@ import java.util.List;
  *
  * @param batchUuid 草稿批次标识
  * @param userId 草稿所属用户
- * @param importType 识别类型
+ * @param importType 识别模式，新草稿固定为 AUTO
  * @param sourceName 语料来源
  * @param scenario 例句场景
  * @param exampleCount 例句数量

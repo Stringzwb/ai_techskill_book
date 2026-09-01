@@ -6,7 +6,7 @@ import java.util.List;
  * AI 截图导入结果。
  *
  * @param batchUuid 导入批次标识
- * @param importType 导入类型
+ * @param importType 导入模式，固定为 AUTO
  * @param sourceName 语料来源
  * @param imageCount 上传截图数
  * @param createdCount 创建语料数

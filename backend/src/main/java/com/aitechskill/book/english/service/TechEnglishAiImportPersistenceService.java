@@ -1,6 +1,7 @@
 package com.aitechskill.book.english.service;
 
 import com.aitechskill.book.common.exception.BusinessException;
+import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishSentenceImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishVocabularyImportPayload;
 import com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity;
@@ -47,6 +48,61 @@ public class TechEnglishAiImportPersistenceService {
         this.vocabularyExampleMapper = vocabularyExampleMapper;
         this.corpusService = corpusService;
         this.objectMapper = objectMapper;
+    }
+
+    /** 在同一事务中保存 AI 自动分类后的生词和句子。 */
+    @Transactional
+    public List<TechEnglishCorpusDetailResponse> saveAuto(
+            String batchUuid,
+            TechEnglishAutoImportPayload payload,
+            List<StoredObject> images,
+            List<Long> tagIds,
+            String sourceName,
+            String scenario,
+            int exampleCount,
+            long userId) {
+        List<TechEnglishVocabularyImportPayload.Item> vocabularyItems = payload.vocabulary() == null
+                || payload.vocabulary().items() == null ? List.of() : payload.vocabulary().items();
+        List<TechEnglishSentenceImportPayload.Item> sentenceItems = payload.sentences() == null
+                || payload.sentences().items() == null ? List.of() : payload.sentences().items();
+        int totalItems = vocabularyItems.size() + sentenceItems.size();
+        if (totalItems == 0) {
+            throw new BusinessException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "TECH_ENGLISH_AI_EMPTY",
+                    "未从截图中识别到可入库的语料");
+        }
+        if (totalItems > MAX_ITEMS_PER_IMPORT) {
+            throw new BusinessException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "TECH_ENGLISH_AI_TOO_MANY_ITEMS",
+                    "单次识别结果过多，请拆分截图");
+        }
+        validateTagIds(tagIds);
+        List<TechEnglishCorpusDetailResponse> created = new ArrayList<>();
+        if (!vocabularyItems.isEmpty()) {
+            created.addAll(saveVocabulary(
+                    batchUuid,
+                    payload.vocabulary(),
+                    images,
+                    tagIds,
+                    sourceName,
+                    scenario,
+                    exampleCount,
+                    userId));
+        }
+        if (!sentenceItems.isEmpty()) {
+            created.addAll(saveSentences(
+                    batchUuid,
+                    payload.sentences(),
+                    images,
+                    tagIds,
+                    sourceName,
+                    scenario,
+                    exampleCount,
+                    userId));
+        }
+        return List.copyOf(created);
     }
 
     /** 保存生词本识别结果。 */

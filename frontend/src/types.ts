@@ -196,12 +196,11 @@ export interface TechEnglishCorpusCreatePayload {
   syncExamplesToSentences?: boolean
 }
 
-/** AI 截图识别类型。 */
-export type TechEnglishAiImportType = 'VOCABULARY' | 'SENTENCE'
+/** AI 截图识别模式，由模型自动判别语料类型。 */
+export type TechEnglishAiImportType = 'AUTO'
 
 /** AI 截图导入请求。 */
 export interface TechEnglishAiImportPayload {
-  importType: TechEnglishAiImportType
   scenario: string
   exampleCount: number
   images: File[]
@@ -210,6 +209,7 @@ export interface TechEnglishAiImportPayload {
 /** 等待用户确认的单条截图识别结果。 */
 export interface TechEnglishAiRecognitionItem {
   sourceImageIndex: number
+  corpusType: 'VOCABULARY' | 'SENTENCE'
   englishText: string
   partOfSpeech: string | null
   translationText: string | null

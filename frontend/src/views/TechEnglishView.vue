@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowRight, BookOpenText, Check, FileSearch, FileText, Image, Languages, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
+import { useRoute } from 'vue-router'
 import KnowledgeTagSelector from '../components/KnowledgeTagSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
 import { confirmTechEnglishScreenshotImport, createTechEnglishCorpus, fetchTechEnglishCorpus, importTechEnglishScreenshots } from '../services/techEnglish'
 import { authStore } from '../stores/auth'
-import type { KnowledgeTagNode, KnowledgeTagSelection, TechEnglishAiImportResponse, TechEnglishAiImportType, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
+import type { KnowledgeTagNode, KnowledgeTagSelection, TechEnglishAiImportResponse, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
 
 interface FlatTagOption {
   id: number
@@ -21,6 +22,8 @@ interface AiImagePreview {
 }
 
 const keyword = ref('')
+const route = useRoute()
+const isAiImportPage = computed(() => route.name === 'tech-english-import')
 const submittedKeyword = ref('')
 const corpusType = ref<TechEnglishCorpusType | ''>('')
 const selection = ref<KnowledgeTagSelection>({ module: null, secondary: null, tertiary: null })
@@ -39,7 +42,6 @@ const tagError = ref('')
 const selectedCreateTagId = ref<number | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
 const aiImageInput = ref<HTMLInputElement | null>(null)
-const aiImportType = ref<TechEnglishAiImportType>('VOCABULARY')
 const aiScenario = ref('')
 const aiExampleCount = ref(2)
 const aiTagSearch = ref('')
@@ -250,14 +252,6 @@ function selectAiTag(tag: FlatTagOption): void {
   aiTagSearch.value = tag.path
 }
 
-/** 设置截图识别类型并清空上一次结果。 */
-function setAiImportType(nextType: TechEnglishAiImportType): void {
-  aiImportType.value = nextType
-  aiRecognitionResult.value = null
-  aiImportResult.value = null
-  aiImportError.value = ''
-}
-
 /** 将选择或拖入的图片追加到待识别队列。 */
 function addAiImages(files: File[]): void {
   aiImportError.value = ''
@@ -344,7 +338,6 @@ async function submitAiImport(): Promise<void> {
   aiImporting.value = true
   try {
     aiRecognitionResult.value = await importTechEnglishScreenshots({
-      importType: aiImportType.value,
       scenario: aiScenario.value.trim(),
       exampleCount: aiExampleCount.value,
       images: aiImages.value.map((item) => item.file),
@@ -378,7 +371,6 @@ async function confirmAiImport(): Promise<void> {
       images: aiImages.value.map((item) => item.file),
     })
     aiRecognitionResult.value = null
-    await loadCorpus(1)
   } catch (error) {
     aiImportError.value = error instanceof Error ? error.message : '确认入库失败，请稍后重试'
   } finally {
@@ -463,8 +455,12 @@ async function submitCorpus(): Promise<void> {
 }
 
 onMounted(() => {
-  void loadCorpus()
+  if (!isAiImportPage.value) void loadCorpus()
   void loadCreateTags()
+})
+
+watch(isAiImportPage, (nextValue) => {
+  if (!nextValue) void loadCorpus()
 })
 
 onBeforeUnmount(() => {
@@ -476,44 +472,48 @@ onBeforeUnmount(() => {
   <section class="tech-english-page content-width">
     <header class="tech-english-hero">
       <div class="tech-english-hero__copy">
-        <span>TECHNICAL ENGLISH</span>
-        <h1>技术英语语料库</h1>
-        <p>上传阅读截图，自动识别生词与经典句子，并将完整学习信息沉淀到知识标签树。</p>
+        <span>{{ isAiImportPage ? 'AI SCREENSHOT IMPORT' : 'TECHNICAL ENGLISH' }}</span>
+        <h1>{{ isAiImportPage ? 'AI 截图识别' : '技术英语语料库' }}</h1>
+        <p v-if="isAiImportPage">AI 自行判别生词与经典句子，分别按默认配置生成完整学习信息。</p>
+        <p v-else>浏览、搜索与维护已发布的技术英语语料。</p>
       </div>
       <div class="tech-english-heading-actions">
-        <div class="tech-english-stat"><strong>{{ result.total }}</strong><span>已发布</span></div>
-        <button v-if="authStore.state.user" class="primary-button" type="button" @click="openCreateForm">
+        <RouterLink v-if="isAiImportPage" class="secondary-button" to="/tech-english"><BookOpenText :size="17" />返回语料库</RouterLink>
+        <template v-else>
+          <div class="tech-english-stat"><strong>{{ result.total }}</strong><span>已发布</span></div>
+          <RouterLink class="primary-button" to="/tech-english/import"><Sparkles :size="17" />AI 识图入库</RouterLink>
+        </template>
+        <button v-if="!isAiImportPage && authStore.state.user" class="secondary-button" type="button" @click="openCreateForm">
           <Plus :size="18" />添加语料
         </button>
-        <RouterLink v-else class="primary-button" to="/login"><LogIn :size="18" />登录后添加</RouterLink>
+        <RouterLink v-else-if="!isAiImportPage" class="secondary-button" to="/login"><LogIn :size="18" />登录后添加</RouterLink>
       </div>
     </header>
 
-    <section class="tech-english-ai-studio" aria-labelledby="tech-english-ai-title">
+    <section v-if="isAiImportPage" class="tech-english-ai-studio" aria-labelledby="tech-english-ai-title">
       <header class="tech-english-ai-studio__header">
         <div>
           <span><Sparkles :size="14" /> AI SCREENSHOT IMPORT</span>
-          <h2 id="tech-english-ai-title">截图智能入库</h2>
-          <p>一次上传最多 10 张；先查看识别结果，确认并选择标签后才正式入库。</p>
+          <h2 id="tech-english-ai-title">上传与自动分类</h2>
+          <p>一次最多 10 张；AI 自动判定语料类型，你只需查看结果并在确认时选择标签。</p>
         </div>
         <div class="tech-english-ai-source"><small>当前来源</small><strong>薄荷阅读</strong></div>
       </header>
 
       <form class="tech-english-ai-layout" @submit.prevent="submitAiImport">
         <aside class="tech-english-ai-modes">
-          <small>01 · 选择识别方式</small>
-          <button type="button" :class="{ active: aiImportType === 'VOCABULARY' }" @click="setAiImportType('VOCABULARY')">
-            <Type :size="19" />
-            <span><strong>生词本</strong><small>词性、释义、英美音标与例句</small></span>
-            <Check v-if="aiImportType === 'VOCABULARY'" :size="16" />
-          </button>
-          <button type="button" :class="{ active: aiImportType === 'SENTENCE' }" @click="setAiImportType('SENTENCE')">
-            <Languages :size="19" />
-            <span><strong>经典句子</strong><small>翻译、重点词汇、句式与例句</small></span>
-            <Check v-if="aiImportType === 'SENTENCE'" :size="16" />
-          </button>
+          <small>01 · AI 自动判别</small>
+          <div class="tech-english-ai-auto-mode">
+            <Sparkles :size="20" />
+            <span><strong>两套默认配置</strong><small>AI 按截图内容决定使用生词或句子配置</small></span>
+            <Check :size="16" />
+          </div>
+          <div class="tech-english-ai-config-summary">
+            <p><Type :size="15" /><span><strong>生词配置</strong>词性、释义、英美音标与例句</span></p>
+            <p><Languages :size="15" /><span><strong>句子配置</strong>翻译、重点词汇、经典句式与例句</span></p>
+          </div>
           <div class="tech-english-ai-flow">
-            <span>1</span><p>AI 按专用 JSON 模板识别</p>
+            <span>1</span><p>AI 自动分类并按对应 JSON 配置输出</p>
             <span>2</span><p>查看结果并选择知识标签</p>
             <span>3</span><p>确认后保存截图并发布语料</p>
           </div>
@@ -560,7 +560,7 @@ onBeforeUnmount(() => {
                   <option :value="0">不生成例句</option>
                   <option v-for="count in 5" :key="count" :value="count">{{ count }} 句</option>
                 </select>
-                <small>{{ aiImportType === 'VOCABULARY' ? '为每个生词生成例句。' : '为经典句式生成同结构例句。' }}</small>
+                <small>生词会生成场景例句，经典句子会生成同句式例句。</small>
               </label>
             </div>
           </section>
@@ -584,7 +584,7 @@ onBeforeUnmount(() => {
             </header>
             <div class="tech-english-ai-review__list">
               <article v-for="(item, index) in aiRecognitionResult.items" :key="`${item.sourceImageIndex}-${index}`">
-                <header><span>截图 {{ item.sourceImageIndex }}</span><small>{{ aiRecognitionResult.importType === 'VOCABULARY' ? '生词' : '经典句子' }}</small></header>
+                <header><span>截图 {{ item.sourceImageIndex }}</span><small>{{ item.corpusType === 'VOCABULARY' ? '生词' : '经典句子' }}</small></header>
                 <h3>{{ item.englishText }}</h3>
                 <div v-if="item.partOfSpeech || item.britishPhonetic || item.americanPhonetic" class="tech-english-ai-review__pronunciation">
                   <strong v-if="item.partOfSpeech">{{ item.partOfSpeech }}</strong>
@@ -650,7 +650,7 @@ onBeforeUnmount(() => {
       </form>
     </section>
 
-    <Teleport to="body">
+    <Teleport v-if="!isAiImportPage" to="body">
       <div v-if="showComposer" class="composer-backdrop" @click.self="showComposer = false">
         <section class="share-composer tech-english-composer" role="dialog" aria-modal="true" aria-labelledby="tech-english-composer-title">
           <header>
@@ -786,9 +786,9 @@ onBeforeUnmount(() => {
       </div>
     </Teleport>
 
-    <p v-if="submitMessage" class="share-message">{{ submitMessage }}</p>
+    <p v-if="!isAiImportPage && submitMessage" class="share-message">{{ submitMessage }}</p>
 
-    <section class="tech-english-command">
+    <section v-if="!isAiImportPage" class="tech-english-command">
       <form class="tech-english-search" role="search" @submit.prevent="searchCorpus">
         <Search :size="19" />
         <input v-model="keyword" type="search" maxlength="100" placeholder="搜索英文、标题、说明或标签" aria-label="搜索技术英语语料" />
@@ -802,7 +802,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <div class="tech-english-workspace">
+    <div v-if="!isAiImportPage" class="tech-english-workspace">
       <aside class="tech-english-sidebar">
         <div class="tech-english-sidebar__title">
           <SlidersHorizontal :size="16" />

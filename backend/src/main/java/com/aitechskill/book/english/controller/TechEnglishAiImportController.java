@@ -32,12 +32,10 @@ public class TechEnglishAiImportController {
     /** 最多上传十张截图并返回识别草稿，此阶段不要求知识标签。 */
     @PostMapping(value = "/screenshots", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public TechEnglishAiRecognitionResponse recognizeScreenshots(
-            @RequestParam String importType,
             @RequestParam(required = false) String scenario,
             @RequestParam(defaultValue = "2") int exampleCount,
             @RequestPart("images") List<MultipartFile> images) {
         return importService.recognizeScreenshots(
-                importType,
                 scenario,
                 exampleCount,
                 images,
