@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper">
+    <select id="selectActiveByVocabularyAndIdForUpdate"
+            resultType="com.aitechskill.book.english.domain.entity.TechEnglishVocabularyExampleEntity">
+        SELECT *
+        FROM tech_english_vocabulary_example
+        WHERE id = #{exampleId}
+          AND vocabulary_corpus_id = #{vocabularyCorpusId}
+          AND deleted = 0
+        LIMIT 1
+        FOR UPDATE
+    </select>
+</mapper>

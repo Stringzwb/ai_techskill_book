@@ -65,6 +65,12 @@ public class TechEnglishAiImportController {
                 UserContextHolder.requireUserId());
     }
 
+    /** 使用已保存来源截图重新识别失败的单个批次。 */
+    @PostMapping("/screenshots/{batchUuid}/retry")
+    public TechEnglishAiRecognitionResponse retryRecognition(@PathVariable String batchUuid) {
+        return importService.retryRecognition(batchUuid, UserContextHolder.requireUserId());
+    }
+
     /** 用户确认识别结果后，保存截图并正式创建语料；知识标签可以不选。 */
     @PostMapping(value = "/screenshots/{batchUuid}/confirm", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public TechEnglishAiImportResponse confirmImport(

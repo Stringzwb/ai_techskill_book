@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ArrowLeft, BookOpenText, CalendarDays, ExternalLink, Quote, Sparkles, Volume2 } from '@lucide/vue'
+import { ArrowLeft, BookOpenText, CalendarDays, Check, ExternalLink, Quote, Sparkles, Volume2 } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import MarkdownContent from '../components/MarkdownContent.vue'
-import { fetchTechEnglishCorpusDetail } from '../services/techEnglish'
-import type { TechEnglishCorpusDetail, TechEnglishCorpusType, TechEnglishDifficulty } from '../types'
+import { fetchTechEnglishCorpusDetail, saveTechEnglishVocabularyExampleAsSentence } from '../services/techEnglish'
+import { authStore } from '../stores/auth'
+import type { TechEnglishCorpusDetail, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExample } from '../types'
 
 const route = useRoute()
 const corpus = ref<TechEnglishCorpusDetail | null>(null)
 const loading = ref(true)
 const errorMessage = ref('')
+const savingExampleId = ref<number | null>(null)
+const savedExampleId = ref<number | null>(null)
+const failedExampleId = ref<number | null>(null)
+const exampleSaveError = ref('')
 
 const corpusId = computed(() => Number(route.params.id))
 
@@ -51,6 +56,25 @@ async function loadCorpus(): Promise<void> {
     errorMessage.value = error instanceof Error ? error.message : '语料加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+/** 按用户操作将一条例句保存为独立的技术句子语料。 */
+async function saveExampleAsSentence(example: TechEnglishVocabularyExample): Promise<void> {
+  if (!corpus.value || savingExampleId.value !== null) return
+  savingExampleId.value = example.id
+  savedExampleId.value = null
+  failedExampleId.value = null
+  exampleSaveError.value = ''
+  try {
+    const sentence = await saveTechEnglishVocabularyExampleAsSentence(corpus.value.id, example.id)
+    example.sentenceCorpusId = sentence.id
+    savedExampleId.value = example.id
+  } catch (error) {
+    failedExampleId.value = example.id
+    exampleSaveError.value = error instanceof Error ? error.message : '保存句子语料失败，请稍后重试'
+  } finally {
+    savingExampleId.value = null
   }
 }
 
@@ -127,6 +151,12 @@ onMounted(loadCorpus)
             <p class="tech-english-detail-english">{{ example.englishText }}</p>
             <span v-if="example.translationText">{{ example.translationText }}</span>
             <RouterLink v-if="example.sentenceCorpusId" :to="`/tech-english/${example.sentenceCorpusId}`">已同步到句子语料</RouterLink>
+            <button v-else-if="authStore.state.user" class="tech-english-example-save" type="button" :disabled="savingExampleId !== null" @click="saveExampleAsSentence(example)">
+              <Check :size="14" />{{ savingExampleId === example.id ? '保存中…' : '保存为句子语料' }}
+            </button>
+            <RouterLink v-else class="tech-english-example-save" to="/login">登录后保存为句子语料</RouterLink>
+            <small v-if="savedExampleId === example.id" class="tech-english-example-save__message">已保存，可打开句子语料查看。</small>
+            <small v-if="failedExampleId === example.id" class="tech-english-example-save__error">{{ exampleSaveError }}</small>
           </div>
         </section>
         <figure v-if="corpus.imageUrl && !corpus.importBatchUuid" class="tech-english-detail-image">

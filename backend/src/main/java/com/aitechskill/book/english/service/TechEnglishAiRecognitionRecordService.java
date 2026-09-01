@@ -92,6 +92,17 @@ public class TechEnglishAiRecognitionRecordService {
         }
     }
 
+    /** 在调用模型前记录已保存的来源截图，使失败批次也可从页面重试。 */
+    public void sourceImagesSaved(String batchUuid, List<StoredObject> sourceImages) {
+        int updated = recordMapper.update(null, Wrappers.<TechEnglishAiRecognitionRecordEntity>lambdaUpdate()
+                .eq(TechEnglishAiRecognitionRecordEntity::getBatchUuid, batchUuid)
+                .eq(TechEnglishAiRecognitionRecordEntity::getDeleted, 0)
+                .set(TechEnglishAiRecognitionRecordEntity::getSourceImagesJson, toJson(sourceImages)));
+        if (updated != 1) {
+            throw new IllegalStateException("技术英语 AI 识图记录不存在，批次=" + batchUuid);
+        }
+    }
+
     /** 保存不包含上游原始响应的安全失败摘要。 */
     public void failed(String batchUuid, RuntimeException exception) {
         String errorCode = exception instanceof BusinessException business
@@ -242,6 +253,40 @@ public class TechEnglishAiRecognitionRecordService {
                         .eq(TechEnglishAiRecognitionRecordEntity::getCreateby, userId)
                         .eq(TechEnglishAiRecognitionRecordEntity::getBatchUuid, batchUuid)
                         .eq(TechEnglishAiRecognitionRecordEntity::getDeleted, 0));
+    }
+
+    /** 锁定失败批次的一次重试，避免同一批次并发重复调用模型。 */
+    public TechEnglishAiRecognitionRecordEntity beginRetry(long userId, String batchUuid) {
+        TechEnglishAiRecognitionRecordEntity record = findImportRecord(userId, batchUuid);
+        if (record == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND,
+                    "TECH_ENGLISH_RECOGNITION_HISTORY_NOT_FOUND", "识图记录不存在");
+        }
+        if (!"FAILED".equals(record.getStatus())) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "TECH_ENGLISH_AI_RETRY_NOT_ALLOWED", "只有失败的识图批次可以重试");
+        }
+        if (sourceImages(record).isEmpty()) {
+            throw new BusinessException(HttpStatus.GONE,
+                    "TECH_ENGLISH_AI_SOURCE_UNAVAILABLE", "该失败批次没有可重试的来源截图，请重新上传本组图片");
+        }
+        int updated = recordMapper.update(null, Wrappers.<TechEnglishAiRecognitionRecordEntity>lambdaUpdate()
+                .eq(TechEnglishAiRecognitionRecordEntity::getId, record.getId())
+                .eq(TechEnglishAiRecognitionRecordEntity::getStatus, "FAILED")
+                .eq(TechEnglishAiRecognitionRecordEntity::getDeleted, 0)
+                .set(TechEnglishAiRecognitionRecordEntity::getStatus, "PROCESSING")
+                .set(TechEnglishAiRecognitionRecordEntity::getErrorCode, null)
+                .set(TechEnglishAiRecognitionRecordEntity::getErrorMessage, null)
+                .set(TechEnglishAiRecognitionRecordEntity::getCompletedAt, null));
+        if (updated != 1) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "TECH_ENGLISH_AI_RETRYING", "该识图批次正在重试，请稍后查看结果");
+        }
+        record.setStatus("PROCESSING");
+        record.setErrorCode(null);
+        record.setErrorMessage(null);
+        record.setCompletedAt(null);
+        return record;
     }
 
     /** 读取识别阶段已经保存的原图对象。 */

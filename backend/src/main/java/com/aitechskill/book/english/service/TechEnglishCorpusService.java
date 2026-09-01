@@ -109,6 +109,38 @@ public class TechEnglishCorpusService {
         return toDetail(corpus, tags, examples);
     }
 
+    /** 将用户主动选择的词汇例句保存为独立句子语料。 */
+    @Transactional
+    public TechEnglishCorpusDetailResponse saveVocabularyExampleAsSentence(
+            long vocabularyCorpusId,
+            long exampleId,
+            long userId) {
+        TechEnglishCorpusEntity vocabulary = corpusMapper.selectPublishedById(vocabularyCorpusId);
+        if (vocabulary == null || !"VOCABULARY".equals(vocabulary.getCorpusType())) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "TECH_ENGLISH_VOCABULARY_NOT_FOUND", "技术英语词汇不存在或尚未发布");
+        }
+        TechEnglishVocabularyExampleEntity example = vocabularyExampleMapper
+                .selectActiveByVocabularyAndIdForUpdate(vocabularyCorpusId, exampleId);
+        if (example == null) {
+            throw new BusinessException(HttpStatus.NOT_FOUND, "TECH_ENGLISH_EXAMPLE_NOT_FOUND", "词汇例句不存在");
+        }
+        if (example.getSentenceCorpusId() != null) {
+            return getPublishedCorpus(example.getSentenceCorpusId());
+        }
+        List<Long> tagIds = corpusMapper.selectTagsByCorpusIds(List.of(vocabularyCorpusId)).stream()
+                .map(DocumentTagRecord::id)
+                .toList();
+        Long sentenceCorpusId = createSentenceFromExample(
+                vocabulary,
+                new TechEnglishVocabularyExampleRequest(example.getEnglishText(), example.getTranslationText()),
+                tagIds,
+                userId);
+        example.setSentenceCorpusId(sentenceCorpusId);
+        example.setUpdateby(userId);
+        vocabularyExampleMapper.updateById(example);
+        return getPublishedCorpus(sentenceCorpusId);
+    }
+
     /** 从主平台轻表单直接收录并发布技术英语语料。 */
     @Transactional
     public TechEnglishCorpusDetailResponse create(TechEnglishCorpusCreateRequest request, MultipartFile imageFile, long userId) {
@@ -408,7 +440,9 @@ public class TechEnglishCorpusService {
         sentence.setCreateby(userId);
         sentence.setUpdateby(userId);
         corpusMapper.insert(sentence);
-        corpusMapper.insertTagLinks(sentence.getId(), tagIds);
+        if (!tagIds.isEmpty()) {
+            corpusMapper.insertTagLinks(sentence.getId(), tagIds);
+        }
         return sentence.getId();
     }
 

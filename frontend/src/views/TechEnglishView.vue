@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowRight, BookOpenText, Check, FileSearch, FileText, Image, Languages, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
+import { ArrowRight, BookOpenText, Check, FileSearch, FileText, Image, Languages, LayoutGrid, List, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import KnowledgeTagMultiSelector from '../components/KnowledgeTagMultiSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
-import { confirmTechEnglishScreenshotImport, createTechEnglishCorpus, fetchTechEnglishCorpus, importTechEnglishScreenshots } from '../services/techEnglish'
+import { confirmTechEnglishScreenshotImport, createTechEnglishCorpus, fetchTechEnglishCorpus, importTechEnglishScreenshots, retryTechEnglishScreenshotImport } from '../services/techEnglish'
 import { authStore } from '../stores/auth'
 import type { KnowledgeTagNode, TechEnglishAiConfirmPayload, TechEnglishAiImportResponse, TechEnglishAiItemTagAssignment, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
 
@@ -28,6 +28,9 @@ interface AiRecognitionChunk extends TechEnglishAiRecognitionResponse {
 
 const AI_MAX_IMAGES = 20
 const AI_CHUNK_SIZE = 5
+const CORPUS_PAGE_SIZE = 20
+
+type CorpusViewMode = 'compact' | 'grid'
 
 const keyword = ref('')
 const route = useRoute()
@@ -35,7 +38,8 @@ const isAiImportPage = computed(() => route.name === 'tech-english-import')
 const submittedKeyword = ref('')
 const corpusType = ref<TechEnglishCorpusType | ''>('')
 const filterTagIds = ref<number[]>([])
-const result = ref<TechEnglishCorpusPage>({ total: 0, page: 1, size: 12, totalPages: 0, items: [] })
+const result = ref<TechEnglishCorpusPage>({ total: 0, page: 1, size: CORPUS_PAGE_SIZE, totalPages: 0, items: [] })
+const corpusViewMode = ref<CorpusViewMode>('compact')
 const loading = ref(true)
 const errorMessage = ref('')
 const selectorKey = ref(0)
@@ -148,7 +152,7 @@ function splitAiImages(images: AiImagePreview[], size: number): AiImagePreview[]
   return chunks
 }
 
-/** 清空某条识图结果的标签。 */
+/** 清空某条识图结果的全部标签。 */
 function clearAiItemAssignment(itemKey: string): void {
   delete aiItemTagAssignments[itemKey]
 }
@@ -161,16 +165,30 @@ function assignCurrentTagToAiItem(itemKey: string): void {
   aiItemTagAssignments[itemKey] = Array.from(next)
 }
 
-/** 将当前标签填充到所有尚未标注的识图结果。 */
-function fillCurrentTagToUnassignedItems(): void {
+/** 从一条识图结果中移除指定标签。 */
+function removeAiItemTag(itemKey: string, tagId: number): void {
+  const remaining = (aiItemTagAssignments[itemKey] ?? []).filter((value) => value !== tagId)
+  if (remaining.length) aiItemTagAssignments[itemKey] = remaining
+  else delete aiItemTagAssignments[itemKey]
+}
+
+/** 将当前标签批量追加或替换到一个识图分组。 */
+function applyCurrentTagToAiBatch(batch: TechEnglishAiRecognitionResponse, mode: 'append' | 'replace'): void {
   if (!selectedAiTagId.value) return
-  aiRecognitionResults.value.forEach((batch) => {
-    batch.items.forEach((item) => {
-      if (!(aiItemTagAssignments[item.itemKey]?.length ?? 0)) {
-        aiItemTagAssignments[item.itemKey] = [selectedAiTagId.value as number]
-      }
-    })
+  batch.items.forEach((item) => {
+    if (mode === 'replace') {
+      aiItemTagAssignments[item.itemKey] = [selectedAiTagId.value as number]
+      return
+    }
+    const next = new Set(aiItemTagAssignments[item.itemKey] ?? [])
+    next.add(selectedAiTagId.value as number)
+    aiItemTagAssignments[item.itemKey] = [...next]
   })
+}
+
+/** 清空一个识图分组中所有结果的标签。 */
+function clearAiBatchAssignments(batch: TechEnglishAiRecognitionResponse): void {
+  batch.items.forEach((item) => clearAiItemAssignment(item.itemKey))
 }
 
 /** 构建提交给后端的标签映射。 */
@@ -186,13 +204,10 @@ function hasItemTags(itemKey: string): boolean {
   return Boolean(aiItemTagAssignments[itemKey]?.length)
 }
 
-/** 判断单个识图批次是否已完成标签选择。 */
-function isBatchTagged(batch: TechEnglishAiRecognitionResponse): boolean {
+/** 判断单个识图批次是否包含可确认入库的结果。 */
+function hasBatchItems(batch: TechEnglishAiRecognitionResponse): boolean {
   return batch.items.length > 0
 }
-
-/** 判断全部识图结果是否都已完成标签选择。 */
-const allAiItemsTagged = computed(() => aiRecognitionResults.value.every((batch) => batch.items.every((item) => hasItemTags(item.itemKey))))
 
 /** 转换语料类型展示文案。 */
 function typeLabel(value: TechEnglishCorpusType): string {
@@ -220,7 +235,7 @@ async function loadCorpus(page = 1): Promise<void> {
       corpusType: corpusType.value,
       tagIds: filterTagIds.value,
       page,
-      size: 12,
+      size: CORPUS_PAGE_SIZE,
     })
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '技术英语语料加载失败'
@@ -269,6 +284,12 @@ function resetFilters(): void {
   filterTagIds.value = []
   selectorKey.value += 1
   void loadCorpus(1)
+}
+
+/** 切换语料列表展示方式并记住本机偏好。 */
+function setCorpusViewMode(mode: CorpusViewMode): void {
+  corpusViewMode.value = mode
+  window.localStorage.setItem('tech-english-corpus-view-mode', mode)
 }
 
 /** 重置主站轻收录表单。 */
@@ -430,7 +451,6 @@ function resetAiImport(): void {
   aiImportResults.value = []
   Object.keys(aiItemTagAssignments).forEach((key) => delete aiItemTagAssignments[key])
   aiSessionUuid.value = ''
-  Object.keys(aiItemTagAssignments).forEach((key) => delete aiItemTagAssignments[key])
   if (aiImageInput.value) aiImageInput.value.value = ''
 }
 
@@ -514,22 +534,27 @@ async function submitAiImport(): Promise<void> {
 /** 重试当前会话中失败的单个识别分组。 */
 async function retryAiBatch(batch: AiRecognitionChunk): Promise<void> {
   if (!batch.failed || !aiSessionUuid.value || aiRetryingChunk.value !== null) return
-  const chunk = splitAiImages(aiImages.value, AI_CHUNK_SIZE)[batch.chunkIndex - 1]
-  if (!chunk?.length) {
-    aiImportError.value = `第 ${batch.chunkIndex} 组原始图片已不存在，无法重试`
-    return
-  }
   aiImportError.value = ''
   aiRetryingChunk.value = batch.chunkIndex
   try {
-    const result = await importTechEnglishScreenshots({
-      sessionUuid: aiSessionUuid.value,
-      chunkIndex: batch.chunkIndex,
-      chunkCount: batch.chunkCount,
-      scenario: aiScenario.value.trim(),
-      exampleCount: aiExampleCount.value,
-      images: chunk.map((item) => item.file),
-    })
+    const localRetryBatch = batch.batchUuid.startsWith(`retry-${aiSessionUuid.value}-`)
+    const chunk = splitAiImages(aiImages.value, AI_CHUNK_SIZE)[batch.chunkIndex - 1]
+    if (localRetryBatch && !chunk?.length) {
+      throw new Error(`第 ${batch.chunkIndex} 组原始图片已不存在，无法重试`)
+    }
+    let result: TechEnglishAiRecognitionResponse
+    if (localRetryBatch) {
+      result = await importTechEnglishScreenshots({
+        sessionUuid: aiSessionUuid.value,
+        chunkIndex: batch.chunkIndex,
+        chunkCount: batch.chunkCount,
+        scenario: aiScenario.value.trim(),
+        exampleCount: aiExampleCount.value,
+        images: chunk.map((item) => item.file),
+      })
+    } else {
+      result = await retryTechEnglishScreenshotImport(batch.batchUuid)
+    }
     const position = aiRecognitionResults.value.findIndex((item) => item.chunkIndex === batch.chunkIndex && item.failed)
     if (position >= 0) aiRecognitionResults.value[position] = { ...result, failed: false }
     result.items.forEach((item) => {
@@ -547,8 +572,8 @@ async function retryAiBatch(batch: AiRecognitionChunk): Promise<void> {
 async function confirmAiBatch(batch: AiRecognitionChunk): Promise<void> {
   aiImportError.value = ''
   if (batch.failed) return
-  if (!isBatchTagged(batch)) {
-    aiImportError.value = `请先为第 ${batch.chunkIndex} 组的每条识图结果选择知识标签`
+  if (!hasBatchItems(batch)) {
+    aiImportError.value = `第 ${batch.chunkIndex} 组没有可入库的识别结果`
     return
   }
   aiConfirming.value = true
@@ -647,6 +672,8 @@ async function submitCorpus(): Promise<void> {
 }
 
 onMounted(() => {
+  const savedViewMode = window.localStorage.getItem('tech-english-corpus-view-mode')
+  if (savedViewMode === 'compact' || savedViewMode === 'grid') corpusViewMode.value = savedViewMode
   if (!isAiImportPage.value) void loadCorpus()
   void loadCreateTags()
 })
@@ -690,11 +717,11 @@ onBeforeUnmount(() => {
         <div>
           <span><Sparkles :size="14" /> AI SCREENSHOT IMPORT</span>
           <h2 id="tech-english-ai-title">上传与自动分类</h2>
-          <p>最多 20 张截图，每组 5 张，自动拆成最多 4 个并发识别任务。知识标签可选，每条结果都可以单独绑定。</p>
+          <p>最多 20 张截图，每组 5 张，自动拆成最多 4 个并发识别任务。标签可逐条编辑，也可按分组批量处理。</p>
         </div>
         <div class="tech-english-ai-source">
-          <small>当前来源</small>
-          <strong>薄荷阅读</strong>
+          <small>识别来源</small>
+          <strong>服务器预设来源</strong>
           <RouterLink class="secondary-button" to="/tech-english/history"><FileSearch :size="16" />识图记录</RouterLink>
         </div>
       </header>
@@ -779,7 +806,7 @@ onBeforeUnmount(() => {
           <section v-if="aiRecognitionResults.length" class="tech-english-ai-review" aria-live="polite">
             <header>
               <div><Sparkles :size="19" /><span><strong>识别完成，等待确认</strong><small>{{ aiRecognitionCount }} 组任务 · {{ aiRecognizedItemCount }} 条语料</small></span></div>
-              <small>会话 {{ aiSessionUuid }}</small>
+              <small>分组可独立编辑并确认</small>
             </header>
 
             <section class="tech-english-ai-tag-picker tech-english-ai-tag-picker--batch">
@@ -797,12 +824,7 @@ onBeforeUnmount(() => {
               <button v-if="selectedAiTag" class="tech-english-ai-selected-tag" type="button" title="重新选择知识标签" @click="openAiTagPicker">
                 <Check :size="14" /><span>{{ selectedAiTag.path }}</span><X :size="13" />
               </button>
-              <footer class="tech-english-ai-tag-picker__actions">
-                <p>标签可不选；选中标签后可逐条追加，也可以一键填充到所有未标注项。</p>
-                <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="fillCurrentTagToUnassignedItems">
-                  <Check :size="16" />填充到未标注项
-                </button>
-              </footer>
+              <p class="tech-english-ai-tag-picker__hint">标签可不选。选择一个当前标签后，可对每条结果追加，也可在分组内批量追加或替换。</p>
             </section>
 
             <div class="tech-english-ai-review__chunks">
@@ -811,6 +833,11 @@ onBeforeUnmount(() => {
                   <span>分组 {{ batch.chunkIndex }} / {{ batch.chunkCount }}</span>
                   <div>
                     <small>{{ batch.imageCount }} 张截图 · {{ batch.itemCount }} 条语料</small>
+                    <div v-if="!batch.failed" class="tech-english-ai-chunk__batch-actions">
+                      <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="applyCurrentTagToAiBatch(batch, 'append')">批量追加</button>
+                      <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="applyCurrentTagToAiBatch(batch, 'replace')">批量替换</button>
+                      <button class="secondary-button" type="button" @click="clearAiBatchAssignments(batch)">清空标签</button>
+                    </div>
                     <button v-if="batch.failed" class="secondary-button" type="button" :disabled="aiRetryingChunk !== null" @click="retryAiBatch(batch)">
                       <RotateCcw :size="15" />{{ aiRetryingChunk === batch.chunkIndex ? '重试中…' : '重试本组' }}
                     </button>
@@ -844,7 +871,9 @@ onBeforeUnmount(() => {
                       <div v-for="(example, exampleIndex) in item.examples" :key="exampleIndex"><p>{{ example.englishText }}</p><small v-if="example.translationText">{{ example.translationText }}</small></div>
                     </details>
                     <div class="tech-english-ai-item__tags">
-                      <span v-for="tagId in aiItemTagAssignments[item.itemKey] ?? []" :key="tagId">{{ tagPath(tagId) }}</span>
+                      <button v-for="tagId in aiItemTagAssignments[item.itemKey] ?? []" :key="tagId" type="button" :title="`移除 ${tagPath(tagId)}`" @click="removeAiItemTag(item.itemKey, tagId)">
+                        <span>{{ tagPath(tagId) }}</span><X :size="12" />
+                      </button>
                       <small v-if="!hasItemTags(item.itemKey)">未标注</small>
                     </div>
                     <footer class="tech-english-ai-item__actions">
@@ -858,7 +887,7 @@ onBeforeUnmount(() => {
 
             <section class="tech-english-ai-confirm">
               <div class="tech-english-ai-confirm__heading"><span>04 · 分批确认入库</span><small>每个批次都可单独入库，已入库批次不会重复创建</small></div>
-              <p>为当前批次的每条结果选择标签后，点击该批次右上角的确认按钮即可。</p>
+              <p>标签是可选的；确认前可逐条编辑，也可使用分组批量操作。确认后会保留词汇与句子两类结果。</p>
             </section>
           </section>
 
@@ -1049,7 +1078,13 @@ onBeforeUnmount(() => {
       <main class="tech-english-results" aria-live="polite">
         <header class="tech-english-results__header">
           <div><span>ENGLISH CORPUS</span><h2>{{ submittedKeyword ? `“${submittedKeyword}”的结果` : '最新语料' }}</h2></div>
-          <small v-if="!loading">{{ corpusType ? typeLabel(corpusType) : selectionLabel || '全部语料' }}</small>
+          <div class="tech-english-results__tools">
+            <small v-if="!loading">{{ corpusType ? typeLabel(corpusType) : selectionLabel || '全部语料' }}</small>
+            <div class="tech-english-view-switch" aria-label="语料展示方式">
+              <button type="button" :class="{ active: corpusViewMode === 'compact' }" :aria-pressed="corpusViewMode === 'compact'" @click="setCorpusViewMode('compact')"><List :size="15" />紧凑列表</button>
+              <button type="button" :class="{ active: corpusViewMode === 'grid' }" :aria-pressed="corpusViewMode === 'grid'" @click="setCorpusViewMode('grid')"><LayoutGrid :size="15" />卡片网格</button>
+            </div>
+          </div>
         </header>
 
         <div v-if="loading" class="document-result-state"><FileSearch :size="25" />正在检索语料…</div>
@@ -1059,8 +1094,8 @@ onBeforeUnmount(() => {
         <div v-else-if="!result.items.length" class="document-result-state">
           <BookOpenText :size="27" /><strong>没有找到匹配语料</strong><span>可以更换关键词、语料类型或知识标签。</span>
         </div>
-        <div v-else class="tech-english-result-list">
-          <RouterLink v-for="item in result.items" :key="item.id" class="tech-english-result-item" :to="`/tech-english/${item.id}`">
+        <div v-else class="tech-english-result-list" :class="`tech-english-result-list--${corpusViewMode}`">
+          <RouterLink v-for="item in result.items" :key="item.id" class="tech-english-result-item" :class="`tech-english-result-item--${corpusViewMode}`" :to="`/tech-english/${item.id}`">
             <div class="tech-english-result-item__meta">
               <span>{{ typeLabel(item.corpusType) }}</span>
               <small>{{ item.scenario || 'general' }} · {{ difficultyLabel(item.difficulty) }}</small>

@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 
 import com.aitechskill.book.ai.config.AiModelClients;
 import com.aitechskill.book.ai.config.AiModelProperties;
+import com.aitechskill.book.ai.domain.AiVisionImage;
 import com.aitechskill.book.common.exception.BusinessException;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -89,6 +90,20 @@ class AiChatServiceTest {
         UserMessage userMessage = (UserMessage) messagesCaptor.getValue().get(0);
         assertThat(userMessage.contents()).hasSize(2);
         assertThat(userMessage.contents().get(1)).isInstanceOf(ImageContent.class);
+    }
+
+    /** 已保存来源截图重试时仍必须通过视觉图片校验。 */
+    @Test
+    void sendsValidatedStoredImageToModel() {
+        given(primaryModel.generate(anyList())).willReturn(success("retry reply"));
+        byte[] png = new byte[] {
+                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x01
+        };
+
+        var response = service.visionStored("重新识别图片", List.of(new AiVisionImage("image/png", png)));
+
+        assertThat(response.text()).isEqualTo("retry reply");
+        verify(primaryModel).generate(anyList());
     }
 
     @Test

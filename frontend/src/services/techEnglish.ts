@@ -36,6 +36,16 @@ export function fetchTechEnglishCorpusDetail(id: number): Promise<TechEnglishCor
   return apiRequest<TechEnglishCorpusDetail>(`/api/tech-english/corpus/${id}`)
 }
 
+/** 将用户选择的词汇例句保存为独立的技术句子语料。 */
+export function saveTechEnglishVocabularyExampleAsSentence(
+  vocabularyCorpusId: number,
+  exampleId: number,
+): Promise<TechEnglishCorpusDetail> {
+  return apiRequest<TechEnglishCorpusDetail>(`/api/tech-english/corpus/${vocabularyCorpusId}/examples/${exampleId}/sentence`, {
+    method: 'POST',
+  })
+}
+
 /** 从主站轻量收录并发布技术英语语料。 */
 export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload): Promise<TechEnglishCorpusDetail> {
   const body = new FormData()
@@ -76,6 +86,13 @@ export function importTechEnglishScreenshots(payload: TechEnglishAiImportPayload
   return apiRequest<TechEnglishAiRecognitionResponse>('/api/tech-english/imports/screenshots', {
     method: 'POST',
     body,
+  })
+}
+
+/** 使用已保存来源截图重新识别失败的单个分组。 */
+export function retryTechEnglishScreenshotImport(batchUuid: string): Promise<TechEnglishAiRecognitionResponse> {
+  return apiRequest<TechEnglishAiRecognitionResponse>(`/api/tech-english/imports/screenshots/${batchUuid}/retry`, {
+    method: 'POST',
   })
 }
 

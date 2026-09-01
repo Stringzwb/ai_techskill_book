@@ -16,10 +16,13 @@ import com.aitechskill.book.ai.domain.response.AiChatResponse;
 import com.aitechskill.book.ai.service.AiChatService;
 import com.aitechskill.book.common.exception.BusinessException;
 import com.aitechskill.book.english.config.TechEnglishImportProperties;
+import com.aitechskill.book.english.domain.TechEnglishImageContent;
 import com.aitechskill.book.english.domain.ai.TechEnglishAiImportDraft;
 import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
+import com.aitechskill.book.english.domain.entity.TechEnglishAiRecognitionRecordEntity;
 import com.aitechskill.book.storage.domain.StoredObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.ByteArrayInputStream;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.time.Instant;
@@ -57,6 +60,36 @@ class TechEnglishAiImportServiceTest {
                 }]
               },
               "sentences": {"templateType": "MINT_SENTENCE_IMPORT_V1", "items": []}
+            }
+            """;
+
+    private static final String AUTO_MIXED_JSON = """
+            {
+              "templateType": "MINT_AUTO_IMPORT_V1",
+              "vocabulary": {
+                "templateType": "MINT_VOCABULARY_IMPORT_V1",
+                "items": [{
+                  "sourceImageIndex": 1,
+                  "word": "resilient",
+                  "partOfSpeech": "adjective",
+                  "meaning": "有韧性的",
+                  "britishPhonetic": null,
+                  "americanPhonetic": null,
+                  "examples": []
+                }]
+              },
+              "sentences": {
+                "templateType": "MINT_SENTENCE_IMPORT_V1",
+                "items": [{
+                  "sourceImageIndex": 1,
+                  "sentence": "Small systems can still be resilient.",
+                  "translation": "小型系统仍然可以很有韧性。",
+                  "keyVocabulary": [],
+                  "classicPattern": "... can still be ...",
+                  "patternExplanation": "表示某事物仍然具备某特性",
+                  "patternExamples": []
+                }]
+              }
             }
             """;
 
@@ -204,6 +237,33 @@ class TechEnglishAiImportServiceTest {
                 .containsExactly("resilient", "Small systems can still be resilient.");
     }
 
+    /** AI 省略空分类分支时仍应保留另一类可入库结果。 */
+    @Test
+    void acceptsMissingEmptyClassificationBranch() {
+        MockMultipartFile image = image("vocabulary-only.png", 10);
+        given(draftStore.draftTtl()).willReturn(Duration.ofMinutes(30));
+        given(aiChatService.vision(anyString(), anyList())).willReturn(aiResponse("""
+                {
+                  "templateType": "MINT_AUTO_IMPORT_V1",
+                  "vocabulary": {
+                    "templateType": "MINT_VOCABULARY_IMPORT_V1",
+                    "items": [{
+                      "sourceImageIndex": 1,
+                      "word": "idempotent",
+                      "partOfSpeech": "adjective",
+                      "meaning": "幂等的",
+                      "examples": []
+                    }]
+                  }
+                }
+                """));
+
+        var response = service.recognizeScreenshots(null, 0, List.of(image), 7L);
+
+        assertThat(response.items()).singleElement()
+                .satisfies(item -> assertThat(item.corpusType()).isEqualTo("VOCABULARY"));
+    }
+
     /** 请求超过十张图片时，在草稿和 AI 调用前拒绝。 */
     @Test
     void rejectsMoreThanTenImages() {
@@ -221,10 +281,11 @@ class TechEnglishAiImportServiceTest {
         verify(draftStore, never()).save(any());
     }
 
-    /** AI 调用失败时尚未写对象存储，因此不会留下待清理对象。 */
+    /** AI 调用失败时保留原图，以便用户在页面中重试该分组。 */
     @Test
-    void doesNotStoreImagesWhenAiCallFails() {
+    void storesImagesWhenAiCallFailsForRetry() {
         MockMultipartFile image = image("first.png", 3);
+        given(imageStorageService.save(7L, image)).willReturn(stored("first.png"));
         given(aiChatService.vision(anyString(), anyList()))
                 .willThrow(new IllegalStateException("upstream unavailable"));
 
@@ -232,7 +293,9 @@ class TechEnglishAiImportServiceTest {
                 null, 2, List.of(image), 7L))
                 .isInstanceOf(IllegalStateException.class);
 
-        verify(imageStorageService, never()).save(anyLong(), any());
+        verify(imageStorageService).save(7L, image);
+        verify(recordService).sourceImagesSaved(anyString(), anyList());
+        verify(recordService).failed(anyString(), any());
         verify(draftStore, never()).save(any());
     }
 
@@ -278,6 +341,64 @@ class TechEnglishAiImportServiceTest {
                 .satisfies(item -> assertThat(item.word()).isEqualTo("meticulous"));
         assertThat(response.batchUuid()).isEqualTo(batchUuid);
         verify(draftStore).complete(batchUuid);
+    }
+
+    /** 用户确认混合识别草稿后，两个分类都必须传入同一事务持久化。 */
+    @Test
+    void confirmsMixedDraftWithVocabularyAndSentence() {
+        String batchUuid = UUID.randomUUID().toString();
+        MockMultipartFile image = image("mixed-confirm.png", 12);
+        TechEnglishAiImportDraft draft = draft(batchUuid, image, AUTO_MIXED_JSON);
+        given(draftStore.require(batchUuid, 7L)).willReturn(draft);
+        given(draftStore.acquireConfirmation(batchUuid, 7L)).willReturn(true);
+        given(imageStorageService.save(7L, image)).willReturn(stored("mixed-confirm.png"));
+        given(persistenceService.saveAuto(
+                anyString(), any(), anyList(), anyMap(), anyString(), any(), anyInt(), anyLong()))
+                .willReturn(List.of());
+
+        service.confirmImport(batchUuid, "[]", List.of(image), 7L);
+
+        ArgumentCaptor<TechEnglishAutoImportPayload> payloadCaptor =
+                ArgumentCaptor.forClass(TechEnglishAutoImportPayload.class);
+        verify(persistenceService).saveAuto(
+                anyString(), payloadCaptor.capture(), anyList(), anyMap(), anyString(), any(), anyInt(), anyLong());
+        assertThat(payloadCaptor.getValue().vocabulary().items()).singleElement()
+                .satisfies(item -> assertThat(item.word()).isEqualTo("resilient"));
+        assertThat(payloadCaptor.getValue().sentences().items()).singleElement()
+                .satisfies(item -> assertThat(item.sentence()).isEqualTo("Small systems can still be resilient."));
+    }
+
+    /** 历史失败批次应使用已保存原图重新识别，并保留原批次标识。 */
+    @Test
+    void retriesFailedBatchWithStoredImages() {
+        String batchUuid = UUID.randomUUID().toString();
+        TechEnglishAiRecognitionRecordEntity record = new TechEnglishAiRecognitionRecordEntity();
+        record.setBatchUuid(batchUuid);
+        record.setSessionUuid("session-1");
+        record.setChunkIndex(2);
+        record.setChunkCount(3);
+        record.setExampleCount(0);
+        record.setSourceName("薄荷阅读");
+        StoredObject sourceImage = stored("retry.png");
+        given(recordService.beginRetry(7L, batchUuid)).willReturn(record);
+        given(recordService.sourceImages(record)).willReturn(List.of(sourceImage));
+        given(imageStorageService.open(sourceImage.objectKey()))
+                .willReturn(new TechEnglishImageContent(
+                        new ByteArrayInputStream(new byte[] {1, 2, 3}), "image/png", 3));
+        given(aiChatService.visionStored(anyString(), anyList())).willReturn(aiResponse(AUTO_VOCABULARY_JSON));
+        given(draftStore.draftTtl()).willReturn(Duration.ofMinutes(30));
+
+        var response = service.retryRecognition(batchUuid, 7L);
+
+        verify(aiChatService).visionStored(anyString(), org.mockito.ArgumentMatchers.argThat(images ->
+                images.size() == 1 && "image/png".equals(images.get(0).contentType())));
+        verify(recordService).recognized(
+                org.mockito.ArgumentMatchers.eq(batchUuid), anyString(), anyList(),
+                org.mockito.ArgumentMatchers.eq(List.of(sourceImage)));
+        assertThat(response.batchUuid()).isEqualTo(batchUuid);
+        assertThat(response.chunkIndex()).isEqualTo(2);
+        assertThat(response.items()).singleElement()
+                .satisfies(item -> assertThat(item.englishText()).isEqualTo("meticulous"));
     }
 
     /** 未选择知识标签时也可以确认入库。 */
@@ -332,6 +453,11 @@ class TechEnglishAiImportServiceTest {
 
     /** 创建与测试图片一致的 Redis 草稿。 */
     private TechEnglishAiImportDraft draft(String batchUuid, MockMultipartFile image) {
+        return draft(batchUuid, image, AUTO_VOCABULARY_JSON);
+    }
+
+    /** 创建与测试图片一致的 Redis 草稿，并指定 AI 原始结果。 */
+    private TechEnglishAiImportDraft draft(String batchUuid, MockMultipartFile image, String payloadJson) {
         try {
             String sha256 = HexFormat.of().formatHex(
                     MessageDigest.getInstance("SHA-256").digest(image.getBytes()));
@@ -347,7 +473,7 @@ class TechEnglishAiImportServiceTest {
                     1,
                     List.of(new TechEnglishAiImportDraft.ImageFingerprint(
                             image.getSize(), image.getContentType(), sha256)),
-                    AUTO_VOCABULARY_JSON,
+                    payloadJson,
                     Instant.now());
         } catch (Exception exception) {
             throw new IllegalStateException(exception);

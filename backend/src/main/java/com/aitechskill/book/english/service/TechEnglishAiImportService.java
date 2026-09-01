@@ -1,9 +1,11 @@
 package com.aitechskill.book.english.service;
 
+import com.aitechskill.book.ai.domain.AiVisionImage;
 import com.aitechskill.book.ai.domain.response.AiChatResponse;
 import com.aitechskill.book.ai.service.AiChatService;
 import com.aitechskill.book.common.exception.BusinessException;
 import com.aitechskill.book.english.config.TechEnglishImportProperties;
+import com.aitechskill.book.english.domain.TechEnglishImageContent;
 import com.aitechskill.book.english.domain.ai.TechEnglishAiImportDraft;
 import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishSentenceImportPayload;
@@ -61,6 +63,7 @@ public class TechEnglishAiImportService {
     private static final String SENTENCE_TEMPLATE_TYPE = "MINT_SENTENCE_IMPORT_V1";
     private static final int MAX_ITEMS_PER_IMPORT = 100;
     private static final int MAX_IMAGES_PER_CHUNK = 5;
+    private static final int MAX_RETRY_IMAGE_BYTES = 20 * 1024 * 1024;
 
     private final AiChatService aiChatService;
     private final TechEnglishImageStorageService imageStorageService;
@@ -138,14 +141,17 @@ public class TechEnglishAiImportService {
                 batchUuid, images.size(), normalizedExampleCount);
         List<StoredObject> storedImages = new ArrayList<>();
         boolean recordRecognized = false;
+        boolean sourceImagesRecorded = false;
         try {
+            for (MultipartFile image : images) {
+                storedImages.add(imageStorageService.save(userId, image));
+            }
+            recordService.sourceImagesSaved(batchUuid, storedImages);
+            sourceImagesRecorded = true;
             AiChatResponse aiResponse = aiChatService.vision(prompt, images);
             List<TechEnglishAiImportDraft.ImageFingerprint> fingerprints = fingerprintImages(images);
             RecognitionBundle recognition = parseRecognition(
                     aiResponse.text(), images.size(), normalizedExampleCount);
-            for (MultipartFile image : images) {
-                storedImages.add(imageStorageService.save(userId, image));
-            }
             recordService.recognized(batchUuid, aiResponse.text(), recognition.items(), storedImages);
             recordRecognized = true;
             Instant createdAt = Instant.now();
@@ -177,10 +183,10 @@ public class TechEnglishAiImportService {
                     createdAt.plus(draftStore.draftTtl()),
                     recognition.items());
         } catch (RuntimeException exception) {
-            if (!recordRecognized) {
+            if (!recordRecognized && !sourceImagesRecorded) {
                 cleanup(storedImages);
-                recordService.failed(batchUuid, exception);
             }
+            if (!recordRecognized) recordService.failed(batchUuid, exception);
             long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
             LOGGER.warn("技术英语 AI 自动识别失败，批次={}，耗时毫秒={}，异常类型={}",
                     batchUuid, elapsedMillis, exception.getClass().getSimpleName());
@@ -196,6 +202,44 @@ public class TechEnglishAiImportService {
             long userId) {
         return recognizeScreenshots(
                 UUID.randomUUID().toString(), 1, 1, scenario, exampleCount, images, userId);
+    }
+
+    /** 使用失败批次已保存的来源截图重新调用模型。 */
+    public TechEnglishAiRecognitionResponse retryRecognition(String batchUuid, long userId) {
+        String normalizedBatchUuid = normalizeBatchUuid(batchUuid);
+        com.aitechskill.book.english.domain.entity.TechEnglishAiRecognitionRecordEntity record =
+                recordService.beginRetry(userId, normalizedBatchUuid);
+        long startedAt = System.nanoTime();
+        try {
+            List<StoredObject> sourceImages = recordService.sourceImages(record);
+            List<AiVisionImage> images = loadStoredVisionImages(sourceImages);
+            AiChatResponse aiResponse = aiChatService.visionStored(
+                    buildPrompt(record.getSourceName(), record.getScenario(), record.getExampleCount(), images.size()),
+                    images);
+            RecognitionBundle recognition = parseRecognition(
+                    aiResponse.text(), images.size(), record.getExampleCount());
+            recordService.recognized(normalizedBatchUuid, aiResponse.text(), recognition.items(), sourceImages);
+            Instant expiresAt = Instant.now().plus(draftStore.draftTtl());
+            LOGGER.info("技术英语 AI 识图重试完成，批次={}，语料数={}，耗时毫秒={}",
+                    normalizedBatchUuid, recognition.items().size(), (System.nanoTime() - startedAt) / 1_000_000);
+            return new TechEnglishAiRecognitionResponse(
+                    record.getSessionUuid(),
+                    normalizedBatchUuid,
+                    record.getChunkIndex(),
+                    record.getChunkCount(),
+                    AUTO_TYPE,
+                    record.getSourceName(),
+                    images.size(),
+                    recognition.items().size(),
+                    expiresAt,
+                    recognition.items());
+        } catch (RuntimeException exception) {
+            recordService.failed(normalizedBatchUuid, exception);
+            LOGGER.warn("技术英语 AI 识图重试失败，批次={}，耗时毫秒={}，异常类型={}",
+                    normalizedBatchUuid, (System.nanoTime() - startedAt) / 1_000_000,
+                    exception.getClass().getSimpleName());
+            throw exception;
+        }
     }
 
     /**
@@ -302,15 +346,8 @@ public class TechEnglishAiImportService {
             String responseText,
             int imageCount,
             int exampleCount) {
-        TechEnglishAutoImportPayload payload = parseJson(
-                responseText, TechEnglishAutoImportPayload.class);
-        if (!AUTO_TEMPLATE_TYPE.equals(payload.templateType())
-                || payload.vocabulary() == null
-                || !VOCABULARY_TEMPLATE_TYPE.equals(payload.vocabulary().templateType())
-                || payload.sentences() == null
-                || !SENTENCE_TEMPLATE_TYPE.equals(payload.sentences().templateType())) {
-            throw invalidAiResponse("自动分类识别结果模板不正确");
-        }
+        TechEnglishAutoImportPayload payload = normalizeAutoPayload(parseJson(
+                responseText, TechEnglishAutoImportPayload.class));
         int totalItems = itemCount(payload.vocabulary().items()) + itemCount(payload.sentences().items());
         if (totalItems == 0) {
             throw new BusinessException(
@@ -437,18 +474,35 @@ public class TechEnglishAiImportService {
             List<StoredObject> images,
             Map<String, List<Long>> itemTagAssignments,
             long userId) {
-        TechEnglishAutoImportPayload payload = parseJson(
-                draft.payloadJson(), TechEnglishAutoImportPayload.class);
-        if (!AUTO_TEMPLATE_TYPE.equals(payload.templateType())
-                || payload.vocabulary() == null
-                || !VOCABULARY_TEMPLATE_TYPE.equals(payload.vocabulary().templateType())
-                || payload.sentences() == null
-                || !SENTENCE_TEMPLATE_TYPE.equals(payload.sentences().templateType())) {
-            throw invalidAiResponse("自动分类识别结果模板不正确");
-        }
+        TechEnglishAutoImportPayload payload = normalizeAutoPayload(parseJson(
+                draft.payloadJson(), TechEnglishAutoImportPayload.class));
         return persistenceService.saveAuto(
                 draft.batchUuid(), payload, images, itemTagAssignments, draft.sourceName(),
                 draft.scenario(), draft.exampleCount(), userId);
+    }
+
+    /** 规范化 AI 省略的空分类分支，保留存在分支的模板版本校验。 */
+    private TechEnglishAutoImportPayload normalizeAutoPayload(TechEnglishAutoImportPayload payload) {
+        if (payload == null || !AUTO_TEMPLATE_TYPE.equals(payload.templateType())) {
+            throw invalidAiResponse("自动分类识别结果模板不正确");
+        }
+        TechEnglishVocabularyImportPayload vocabulary = payload.vocabulary();
+        if (vocabulary == null) {
+            vocabulary = new TechEnglishVocabularyImportPayload(VOCABULARY_TEMPLATE_TYPE, List.of());
+        } else if (!VOCABULARY_TEMPLATE_TYPE.equals(vocabulary.templateType())) {
+            throw invalidAiResponse("自动分类识别结果模板不正确");
+        } else if (vocabulary.items() == null) {
+            vocabulary = new TechEnglishVocabularyImportPayload(vocabulary.templateType(), List.of());
+        }
+        TechEnglishSentenceImportPayload sentences = payload.sentences();
+        if (sentences == null) {
+            sentences = new TechEnglishSentenceImportPayload(SENTENCE_TEMPLATE_TYPE, List.of());
+        } else if (!SENTENCE_TEMPLATE_TYPE.equals(sentences.templateType())) {
+            throw invalidAiResponse("自动分类识别结果模板不正确");
+        } else if (sentences.items() == null) {
+            sentences = new TechEnglishSentenceImportPayload(sentences.templateType(), List.of());
+        }
+        return new TechEnglishAutoImportPayload(AUTO_TEMPLATE_TYPE, vocabulary, sentences);
     }
 
     /** 生成要求模型先自动分类，再按两套默认配置输出的提示词。 */
@@ -728,6 +782,31 @@ public class TechEnglishAiImportService {
             throw new IllegalStateException("TECH_ENGLISH_IMPORT_SOURCE_NAME 未配置");
         }
         return properties.getSourceName().trim();
+    }
+
+    /** 从私有对象存储读取已验证的来源截图，供失败批次重新调用模型。 */
+    private List<AiVisionImage> loadStoredVisionImages(List<StoredObject> sourceImages) {
+        List<AiVisionImage> images = new ArrayList<>(sourceImages.size());
+        for (StoredObject storedImage : sourceImages) {
+            TechEnglishImageContent content = imageStorageService.open(storedImage.objectKey());
+            long contentLength = content.contentLength();
+            if (contentLength <= 0 || contentLength > MAX_RETRY_IMAGE_BYTES) {
+                throw new BusinessException(HttpStatus.GONE,
+                        "TECH_ENGLISH_AI_SOURCE_UNAVAILABLE", "来源截图大小异常，无法重试");
+            }
+            try (InputStream input = content.inputStream()) {
+                byte[] bytes = input.readNBytes((int) contentLength + 1);
+                if (bytes.length != contentLength) {
+                    throw new BusinessException(HttpStatus.GONE,
+                            "TECH_ENGLISH_AI_SOURCE_UNAVAILABLE", "来源截图内容不完整，无法重试");
+                }
+                images.add(new AiVisionImage(content.contentType(), bytes));
+            } catch (IOException exception) {
+                throw new BusinessException(HttpStatus.GONE,
+                        "TECH_ENGLISH_AI_SOURCE_UNAVAILABLE", "来源截图无法读取，无法重试", exception);
+            }
+        }
+        return List.copyOf(images);
     }
 
     /** 导入失败时尽力删除已上传截图，不记录对象键。 */

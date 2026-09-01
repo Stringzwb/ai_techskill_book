@@ -2,6 +2,7 @@ package com.aitechskill.book.ai.service;
 
 import com.aitechskill.book.ai.config.AiModelClients;
 import com.aitechskill.book.ai.config.AiModelProperties;
+import com.aitechskill.book.ai.domain.AiVisionImage;
 import com.aitechskill.book.ai.domain.response.AiChatResponse;
 import com.aitechskill.book.common.exception.BusinessException;
 import dev.langchain4j.data.message.ChatMessage;
@@ -76,10 +77,27 @@ public class AiChatService {
         if (images == null || images.isEmpty()) {
             throw invalidImage("请上传图片文件");
         }
+        List<ValidatedImage> validatedImages = images.stream().map(this::validateImage).toList();
+        return generateVision(normalizedMessage, validatedImages);
+    }
+
+    /** 向视觉模型发送来自受控对象存储的图片。 */
+    public AiChatResponse visionStored(String message, List<AiVisionImage> images) {
+        String normalizedMessage = normalizeMessage(message);
+        if (images == null || images.isEmpty()) {
+            throw invalidImage("没有可重试的来源截图");
+        }
+        List<ValidatedImage> validatedImages = images.stream()
+                .map(image -> validateImage(image.contentType(), image.bytes()))
+                .toList();
+        return generateVision(normalizedMessage, validatedImages);
+    }
+
+    /** 将校验后的图片和提示词组合为视觉模型消息。 */
+    private AiChatResponse generateVision(String message, List<ValidatedImage> images) {
         List<Content> contents = new ArrayList<>();
-        contents.add(TextContent.from(normalizedMessage));
-        for (MultipartFile image : images) {
-            ValidatedImage validatedImage = validateImage(image);
+        contents.add(TextContent.from(message));
+        for (ValidatedImage validatedImage : images) {
             contents.add(ImageContent.from(validatedImage.base64Data(), validatedImage.contentType()));
         }
         UserMessage userMessage = UserMessage.from(contents);
@@ -150,10 +168,21 @@ public class AiChatService {
         } catch (IOException exception) {
             throw invalidImage("无法读取上传图片", exception);
         }
-        if (bytes.length == 0 || bytes.length > maxSize || !matchesSignature(contentType, bytes)) {
+        return validateImage(contentType, bytes);
+    }
+
+    /** 校验图片字节并转换为模型支持的 Base64 内容。 */
+    private ValidatedImage validateImage(String contentType, byte[] bytes) {
+        String normalizedContentType = normalizeContentType(contentType);
+        long maxSize = properties.getImageMaxSize().toBytes();
+        if (!SUPPORTED_IMAGE_TYPES.contains(normalizedContentType)) {
+            throw invalidImage("仅支持 JPEG、PNG、GIF 和 WebP 图片");
+        }
+        if (bytes == null || bytes.length == 0 || bytes.length > maxSize
+                || !matchesSignature(normalizedContentType, bytes)) {
             throw invalidImage("图片文件特征与声明类型不匹配");
         }
-        return new ValidatedImage(java.util.Base64.getEncoder().encodeToString(bytes), contentType);
+        return new ValidatedImage(java.util.Base64.getEncoder().encodeToString(bytes), normalizedContentType);
     }
 
     /** 归一化客户端声明的图片 MIME。 */

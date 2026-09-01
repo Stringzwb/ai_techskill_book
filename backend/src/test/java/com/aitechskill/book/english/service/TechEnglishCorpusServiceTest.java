@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.aitechskill.book.common.exception.BusinessException;
@@ -211,5 +212,74 @@ class TechEnglishCorpusServiceTest {
             assertThat(example.englishText()).isEqualTo("A PUT request should be idempotent.");
             assertThat(example.sentenceCorpusId()).isEqualTo(32L);
         });
+    }
+
+    /** 用户点击保存后，AI 例句应单独生成句子语料并复制词汇标签。 */
+    @Test
+    void savesVocabularyExampleAsSentenceOnDemand() {
+        TechEnglishCorpusEntity vocabulary = corpus(31L, "VOCABULARY", "idempotent");
+        vocabulary.setScenario("backend");
+        vocabulary.setDifficulty("INTERMEDIATE");
+        TechEnglishVocabularyExampleEntity example = new TechEnglishVocabularyExampleEntity();
+        example.setId(41L);
+        example.setVocabularyCorpusId(31L);
+        example.setEnglishText("A PUT request should be idempotent.");
+        example.setTranslationText("PUT 请求应当是幂等的。");
+        TechEnglishCorpusEntity sentence = corpus(32L, "SENTENCE", "A PUT request should be idempotent.");
+        sentence.setDifficulty("INTERMEDIATE");
+        given(corpusMapper.selectPublishedById(31L)).willReturn(vocabulary);
+        given(vocabularyExampleMapper.selectActiveByVocabularyAndIdForUpdate(31L, 41L)).willReturn(example);
+        given(corpusMapper.selectTagsByCorpusIds(List.of(31L)))
+                .willReturn(List.of(new DocumentTagRecord(31L, 3L, "集合框架", 3)));
+        given(corpusMapper.insert(any(TechEnglishCorpusEntity.class))).willAnswer(invocation -> {
+            TechEnglishCorpusEntity created = invocation.getArgument(0);
+            created.setId(32L);
+            return 1;
+        });
+        given(corpusMapper.selectPublishedById(32L)).willReturn(sentence);
+        given(corpusMapper.selectTagsByCorpusIds(List.of(32L))).willReturn(List.of());
+
+        TechEnglishCorpusDetailResponse response = service.saveVocabularyExampleAsSentence(31L, 41L, 7L);
+
+        ArgumentCaptor<TechEnglishCorpusEntity> sentenceCaptor = ArgumentCaptor.forClass(TechEnglishCorpusEntity.class);
+        verify(corpusMapper).insert(sentenceCaptor.capture());
+        verify(corpusMapper).insertTagLinks(32L, List.of(3L));
+        verify(vocabularyExampleMapper).updateById(example);
+        assertThat(sentenceCaptor.getValue().getCorpusType()).isEqualTo("SENTENCE");
+        assertThat(sentenceCaptor.getValue().getEnglishText()).isEqualTo("A PUT request should be idempotent.");
+        assertThat(example.getSentenceCorpusId()).isEqualTo(32L);
+        assertThat(response.id()).isEqualTo(32L);
+    }
+
+    /** 已保存的例句再次点击时复用已有句子语料。 */
+    @Test
+    void reusesSentenceCorpusForSavedVocabularyExample() {
+        TechEnglishCorpusEntity vocabulary = corpus(31L, "VOCABULARY", "idempotent");
+        TechEnglishVocabularyExampleEntity example = new TechEnglishVocabularyExampleEntity();
+        example.setId(41L);
+        example.setVocabularyCorpusId(31L);
+        example.setSentenceCorpusId(32L);
+        TechEnglishCorpusEntity sentence = corpus(32L, "SENTENCE", "A PUT request should be idempotent.");
+        given(corpusMapper.selectPublishedById(31L)).willReturn(vocabulary);
+        given(vocabularyExampleMapper.selectActiveByVocabularyAndIdForUpdate(31L, 41L)).willReturn(example);
+        given(corpusMapper.selectPublishedById(32L)).willReturn(sentence);
+        given(corpusMapper.selectTagsByCorpusIds(List.of(32L))).willReturn(List.of());
+
+        TechEnglishCorpusDetailResponse response = service.saveVocabularyExampleAsSentence(31L, 41L, 7L);
+
+        verify(corpusMapper, never()).insert(any(TechEnglishCorpusEntity.class));
+        verify(vocabularyExampleMapper, never()).updateById(any(TechEnglishVocabularyExampleEntity.class));
+        assertThat(response.id()).isEqualTo(32L);
+    }
+
+    /** 构造技术英语语料实体。 */
+    private TechEnglishCorpusEntity corpus(long id, String corpusType, String englishText) {
+        TechEnglishCorpusEntity corpus = new TechEnglishCorpusEntity();
+        corpus.setId(id);
+        corpus.setCorpusType(corpusType);
+        corpus.setTitle(englishText);
+        corpus.setEnglishText(englishText);
+        corpus.setStatus("PUBLISHED");
+        return corpus;
     }
 }

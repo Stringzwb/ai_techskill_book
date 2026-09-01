@@ -58,6 +58,15 @@ public class TechEnglishCorpusController {
         return corpusService.getPublishedCorpus(id);
     }
 
+    /** 将用户选择的词汇例句单独保存为技术句子语料。 */
+    @PostMapping("/{vocabularyCorpusId}/examples/{exampleId}/sentence")
+    public TechEnglishCorpusDetailResponse saveVocabularyExampleAsSentence(
+            @PathVariable long vocabularyCorpusId,
+            @PathVariable long exampleId) {
+        return corpusService.saveVocabularyExampleAsSentence(
+                vocabularyCorpusId, exampleId, UserContextHolder.requireUserId());
+    }
+
     /** 登录用户从主站轻量收录技术英语语料。 */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public TechEnglishCorpusDetailResponse create(

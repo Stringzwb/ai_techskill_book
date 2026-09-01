@@ -3,7 +3,7 @@ import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowLeft, Check, Download, FileSearch, RefreshCcw, Search, Sparkles, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
-import { confirmTechEnglishScreenshotImport, downloadTechEnglishRecognitionBatchHistory, downloadTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistoryDetail } from '../services/techEnglish'
+import { confirmTechEnglishScreenshotImport, downloadTechEnglishRecognitionBatchHistory, downloadTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistoryDetail, retryTechEnglishScreenshotImport } from '../services/techEnglish'
 import type { KnowledgeTagNode, TechEnglishRecognitionHistoryDetail, TechEnglishRecognitionHistorySummary, TechEnglishRecognitionHistoryTask } from '../types'
 
 const route = useRoute()
@@ -19,6 +19,7 @@ const tagSearch = ref('')
 const selectedTagId = ref<number | null>(null)
 const tagPickerOpen = ref(false)
 const batchImporting = ref('')
+const batchRetrying = ref('')
 const itemTagAssignments = reactive<Record<string, number[]>>({})
 let tagPickerCloseTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -94,12 +95,30 @@ function clearTags(itemKey: string): void {
   delete itemTagAssignments[itemKey]
 }
 
-/** 将当前标签填充到一个批次的未标注结果。 */
-function fillBatchTags(task: TechEnglishRecognitionHistoryTask): void {
+/** 从历史识图结果中移除指定标签。 */
+function removeTag(itemKey: string, tagId: number): void {
+  const remaining = (itemTagAssignments[itemKey] ?? []).filter((value) => value !== tagId)
+  if (remaining.length) itemTagAssignments[itemKey] = remaining
+  else delete itemTagAssignments[itemKey]
+}
+
+/** 将当前标签批量追加或替换到历史识图分组。 */
+function applyTagToBatch(task: TechEnglishRecognitionHistoryTask, mode: 'append' | 'replace'): void {
   if (!selectedTagId.value) return
   task.items.forEach((item) => {
-    if (!(itemTagAssignments[item.itemKey]?.length ?? 0)) itemTagAssignments[item.itemKey] = [selectedTagId.value as number]
+    if (mode === 'replace') {
+      itemTagAssignments[item.itemKey] = [selectedTagId.value as number]
+      return
+    }
+    const values = new Set(itemTagAssignments[item.itemKey] ?? [])
+    values.add(selectedTagId.value as number)
+    itemTagAssignments[item.itemKey] = [...values]
   })
+}
+
+/** 清空一个历史识图分组的标签。 */
+function clearBatchTags(task: TechEnglishRecognitionHistoryTask): void {
+  task.items.forEach((item) => clearTags(item.itemKey))
 }
 
 /** 判断一个批次是否存在可入库的识别结果。 */
@@ -125,6 +144,21 @@ async function importBatch(task: TechEnglishRecognitionHistoryTask): Promise<voi
     detailError.value = error instanceof Error ? error.message : '批次入库失败，请稍后重试'
   } finally {
     batchImporting.value = ''
+  }
+}
+
+/** 使用已保存来源截图重试历史中的失败分组。 */
+async function retryBatch(task: TechEnglishRecognitionHistoryTask): Promise<void> {
+  if (task.status !== 'FAILED' || batchRetrying.value) return
+  batchRetrying.value = task.batchUuid
+  detailError.value = ''
+  try {
+    await retryTechEnglishScreenshotImport(task.batchUuid)
+    await openDetail(selectedSessionUuid.value)
+  } catch (error) {
+    detailError.value = error instanceof Error ? error.message : '批次重试失败，请稍后重试'
+  } finally {
+    batchRetrying.value = ''
   }
 }
 
@@ -236,7 +270,7 @@ watch(
       <div class="tech-english-hero__copy">
         <span>TECH ENGLISH HISTORY</span>
         <h1>识图记录</h1>
-        <p>这里记录每次截图识别的会话、分组和结果。可以打开详情查看每条识图内容，并导出 Markdown 或 HTML。</p>
+        <p>这里记录每次截图识别的会话、分组和结果。失败分组可直接重试，已识别结果可查看、打标签并导出 Markdown 或 HTML。</p>
       </div>
       <div class="tech-english-heading-actions">
         <RouterLink class="secondary-button" to="/tech-english"><ArrowLeft :size="17" />返回语料库</RouterLink>
@@ -315,7 +349,7 @@ watch(
             <button v-if="selectedTagId" class="tech-english-ai-selected-tag" type="button" @click="openTagPicker">
               <Check :size="14" /><span>{{ tagPath(selectedTagId) }}</span><X :size="13" />
             </button>
-            <small>标签可不选；选中标签后，可在每条结果上单独追加，也可填充到当前批次未标注项。</small>
+            <small>标签可不选；选择当前标签后，可逐条追加、移除，也可对当前分组批量追加或替换。</small>
           </section>
 
           <div class="tech-english-history-timeline">
@@ -332,7 +366,14 @@ watch(
                     <button v-if="task.status === 'RECOGNIZED'" type="button" class="primary-button" :disabled="batchImporting === task.batchUuid" @click="importBatch(task)">
                       <Check :size="14" />{{ batchImporting === task.batchUuid ? '入库中…' : '入库本批次' }}
                     </button>
-                    <button v-if="task.status === 'RECOGNIZED'" type="button" class="secondary-button" :disabled="!selectedTagId" @click="fillBatchTags(task)">填充未标注</button>
+                    <button v-if="task.status === 'FAILED'" type="button" class="secondary-button" :disabled="Boolean(batchRetrying)" @click="retryBatch(task)">
+                      <RefreshCcw :size="14" />{{ batchRetrying === task.batchUuid ? '重试中…' : '重试本组' }}
+                    </button>
+                    <template v-if="task.status === 'RECOGNIZED'">
+                      <button type="button" class="secondary-button" :disabled="!selectedTagId" @click="applyTagToBatch(task, 'append')">批量追加</button>
+                      <button type="button" class="secondary-button" :disabled="!selectedTagId" @click="applyTagToBatch(task, 'replace')">批量替换</button>
+                      <button type="button" class="secondary-button" @click="clearBatchTags(task)">清空标签</button>
+                    </template>
                   </div>
               </header>
               <p v-if="task.errorMessage" class="tech-english-history-task__error">{{ task.errorMessage }}</p>
@@ -359,7 +400,9 @@ watch(
                     </div>
                       </div>
                       <div v-if="task.status === 'RECOGNIZED'" class="tech-english-ai-item__tags">
-                        <span v-for="tagId in itemTagAssignments[item.itemKey] ?? []" :key="tagId">{{ tagPath(tagId) }}</span>
+                        <button v-for="tagId in itemTagAssignments[item.itemKey] ?? []" :key="tagId" type="button" :title="`移除 ${tagPath(tagId)}`" @click="removeTag(item.itemKey, tagId)">
+                          <span>{{ tagPath(tagId) }}</span><X :size="12" />
+                        </button>
                         <small v-if="!itemTagAssignments[item.itemKey]?.length">未标注</small>
                       </div>
                       <footer v-if="task.status === 'RECOGNIZED'" class="tech-english-ai-item__actions">
