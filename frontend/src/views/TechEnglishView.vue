@@ -2,11 +2,11 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowRight, BookOpenText, Check, FileSearch, FileText, Image, Languages, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
-import KnowledgeTagSelector from '../components/KnowledgeTagSelector.vue'
+import KnowledgeTagMultiSelector from '../components/KnowledgeTagMultiSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
 import { confirmTechEnglishScreenshotImport, createTechEnglishCorpus, fetchTechEnglishCorpus, importTechEnglishScreenshots } from '../services/techEnglish'
 import { authStore } from '../stores/auth'
-import type { KnowledgeTagNode, KnowledgeTagSelection, TechEnglishAiConfirmPayload, TechEnglishAiImportResponse, TechEnglishAiItemTagAssignment, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
+import type { KnowledgeTagNode, TechEnglishAiConfirmPayload, TechEnglishAiImportResponse, TechEnglishAiItemTagAssignment, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
 
 interface FlatTagOption {
   id: number
@@ -34,7 +34,7 @@ const route = useRoute()
 const isAiImportPage = computed(() => route.name === 'tech-english-import')
 const submittedKeyword = ref('')
 const corpusType = ref<TechEnglishCorpusType | ''>('')
-const selection = ref<KnowledgeTagSelection>({ module: null, secondary: null, tertiary: null })
+const filterTagIds = ref<number[]>([])
 const result = ref<TechEnglishCorpusPage>({ total: 0, page: 1, size: 12, totalPages: 0, items: [] })
 const loading = ref(true)
 const errorMessage = ref('')
@@ -48,12 +48,14 @@ const tagSearch = ref('')
 const tagLoading = ref(false)
 const tagError = ref('')
 const selectedCreateTagId = ref<number | null>(null)
+const createTagPickerOpen = ref(false)
 const imageInput = ref<HTMLInputElement | null>(null)
 const aiImageInput = ref<HTMLInputElement | null>(null)
 const aiScenario = ref('')
 const aiExampleCount = ref(2)
 const aiTagSearch = ref('')
 const selectedAiTagId = ref<number | null>(null)
+const aiTagPickerOpen = ref(false)
 const aiImages = ref<AiImagePreview[]>([])
 const aiDragActive = ref(false)
 const aiImporting = ref(false)
@@ -64,6 +66,8 @@ const aiSessionUuid = ref('')
 const aiRecognitionResults = ref<AiRecognitionChunk[]>([])
 const aiImportResults = ref<TechEnglishAiImportResponse[]>([])
 const aiItemTagAssignments = reactive<Record<string, number[]>>({})
+let createTagPickerCloseTimer: ReturnType<typeof setTimeout> | undefined
+let aiTagPickerCloseTimer: ReturnType<typeof setTimeout> | undefined
 const form = reactive<TechEnglishCorpusCreatePayload>({
   corpusType: 'VOCABULARY',
   title: '',
@@ -90,12 +94,7 @@ const corpusTypes: Array<{ value: TechEnglishCorpusType; label: string; icon: ty
   { value: 'ARTICLE', label: '英语文章', icon: FileText },
 ]
 
-const activeTag = computed(() => selection.value.tertiary ?? selection.value.secondary ?? selection.value.module)
-const selectionLabel = computed(() => [
-  selection.value.module?.name,
-  selection.value.secondary?.name,
-  selection.value.tertiary?.name,
-].filter(Boolean).join(' / '))
+const selectionLabel = computed(() => filterTagIds.value.length ? `已选择 ${filterTagIds.value.length} 个标签` : '')
 const imageFileName = computed(() => form.imageFile?.name ?? '')
 const flatTags = computed<FlatTagOption[]>(() => {
   const options: FlatTagOption[] = []
@@ -219,7 +218,7 @@ async function loadCorpus(page = 1): Promise<void> {
     result.value = await fetchTechEnglishCorpus({
       keyword: submittedKeyword.value,
       corpusType: corpusType.value,
-      tagId: activeTag.value?.id,
+      tagIds: filterTagIds.value,
       page,
       size: 12,
     })
@@ -250,9 +249,9 @@ function searchCorpus(): void {
   void loadCorpus(1)
 }
 
-/** 标签变化后立即应用筛选。 */
-function updateSelection(nextSelection: KnowledgeTagSelection): void {
-  selection.value = nextSelection
+/** 多选标签变化后立即应用筛选。 */
+function updateTagFilter(tagIds: number[]): void {
+  filterTagIds.value = [...tagIds]
   void loadCorpus(1)
 }
 
@@ -267,7 +266,7 @@ function resetFilters(): void {
   keyword.value = ''
   submittedKeyword.value = ''
   corpusType.value = ''
-  selection.value = { module: null, secondary: null, tertiary: null }
+  filterTagIds.value = []
   selectorKey.value += 1
   void loadCorpus(1)
 }
@@ -323,12 +322,44 @@ function selectCreateTag(tag: FlatTagOption): void {
   selectedCreateTagId.value = tag.id
   form.tagIds = [tag.id]
   tagSearch.value = tag.path
+  createTagPickerOpen.value = false
 }
 
 /** 选择截图识别结果要绑定的知识标签。 */
 function selectAiTag(tag: FlatTagOption): void {
   selectedAiTagId.value = tag.id
   aiTagSearch.value = tag.path
+  aiTagPickerOpen.value = false
+}
+
+/** 打开添加语料标签候选列表。 */
+function openCreateTagPicker(): void {
+  if (createTagPickerCloseTimer) clearTimeout(createTagPickerCloseTimer)
+  createTagPickerOpen.value = true
+  if (selectedCreateTagId.value) {
+    selectedCreateTagId.value = null
+    tagSearch.value = ''
+  }
+}
+
+/** 延迟关闭添加语料标签候选列表，保证鼠标可以点击候选项。 */
+function closeCreateTagPicker(): void {
+  createTagPickerCloseTimer = setTimeout(() => { createTagPickerOpen.value = false }, 120)
+}
+
+/** 打开识图标签候选列表并准备新的搜索。 */
+function openAiTagPicker(): void {
+  if (aiTagPickerCloseTimer) clearTimeout(aiTagPickerCloseTimer)
+  aiTagPickerOpen.value = true
+  if (selectedAiTagId.value) {
+    selectedAiTagId.value = null
+    aiTagSearch.value = ''
+  }
+}
+
+/** 延迟关闭识图标签候选列表，保证鼠标可以点击候选项。 */
+function closeAiTagPicker(): void {
+  aiTagPickerCloseTimer = setTimeout(() => { aiTagPickerOpen.value = false }, 120)
 }
 
 /** 将选择或拖入的图片追加到待识别队列。 */
@@ -393,6 +424,7 @@ function resetAiImport(): void {
   aiExampleCount.value = 2
   aiTagSearch.value = ''
   selectedAiTagId.value = null
+  aiTagPickerOpen.value = false
   aiImportError.value = ''
   aiRecognitionResults.value = []
   aiImportResults.value = []
@@ -625,6 +657,8 @@ watch(isAiImportPage, (nextValue) => {
 
 onBeforeUnmount(() => {
   aiImages.value.forEach((item) => URL.revokeObjectURL(item.url))
+  if (createTagPickerCloseTimer) clearTimeout(createTagPickerCloseTimer)
+  if (aiTagPickerCloseTimer) clearTimeout(aiTagPickerCloseTimer)
 })
 </script>
 
@@ -752,15 +786,15 @@ onBeforeUnmount(() => {
               <label>知识标签树
                 <div class="tech-english-tag-search">
                   <Search :size="16" />
-                  <input v-model="aiTagSearch" maxlength="80" placeholder="搜索并选择一个标签" @input="selectedAiTagId = null" />
+                  <input v-model="aiTagSearch" maxlength="80" placeholder="搜索并选择一个标签" @focus="openAiTagPicker" @blur="closeAiTagPicker" @input="selectedAiTagId = null; aiTagPickerOpen = true" />
                 </div>
               </label>
               <p v-if="tagLoading" class="tech-english-tag-state">正在加载标签...</p>
               <p v-else-if="tagError" class="tech-english-tag-state tech-english-tag-state--error">{{ tagError }}</p>
-              <div v-else-if="!selectedAiTag" class="tech-english-ai-tag-options">
+              <div v-else-if="aiTagPickerOpen" class="tech-english-ai-tag-options">
                 <button v-for="tag in filteredAiTags" :key="tag.id" type="button" @click="selectAiTag(tag)"><span>{{ tag.path }}</span></button>
               </div>
-              <button v-if="selectedAiTag" class="tech-english-ai-selected-tag" type="button" title="重新选择知识标签" @click="selectedAiTagId = null">
+              <button v-if="selectedAiTag" class="tech-english-ai-selected-tag" type="button" title="重新选择知识标签" @click="openAiTagPicker">
                 <Check :size="14" /><span>{{ selectedAiTag.path }}</span><X :size="13" />
               </button>
               <footer class="tech-english-ai-tag-picker__actions">
@@ -869,12 +903,12 @@ onBeforeUnmount(() => {
               <label>知识标签
                 <div class="tech-english-tag-search">
                   <Search :size="16" />
-                  <input v-model="tagSearch" maxlength="80" placeholder="搜索并选择一个标签" />
+                  <input v-model="tagSearch" maxlength="80" placeholder="搜索并选择一个标签" @focus="openCreateTagPicker" @blur="closeCreateTagPicker" @input="createTagPickerOpen = true; selectedCreateTagId = null" />
                 </div>
               </label>
               <p v-if="tagLoading" class="tech-english-tag-state">正在加载标签...</p>
               <p v-else-if="tagError" class="tech-english-tag-state tech-english-tag-state--error">{{ tagError }}</p>
-              <div v-else class="tech-english-tag-options">
+              <div v-else-if="createTagPickerOpen" class="tech-english-tag-options">
                 <button v-for="tag in filteredCreateTags" :key="tag.id" type="button" :class="{ active: selectedCreateTagId === tag.id }" @click="selectCreateTag(tag)">
                   <Check v-if="selectedCreateTagId === tag.id" :size="14" />
                   <span>{{ tag.path }}</span>
@@ -1004,7 +1038,7 @@ onBeforeUnmount(() => {
           <SlidersHorizontal :size="16" />
           <span>筛选</span>
         </div>
-        <KnowledgeTagSelector :key="selectorKey" @change="updateSelection" />
+        <KnowledgeTagMultiSelector :key="selectorKey" @change="updateTagFilter" />
         <div class="active-filter">
           <small>当前范围</small>
           <strong>{{ selectionLabel || '全部知识标签' }}</strong>
@@ -1015,7 +1049,7 @@ onBeforeUnmount(() => {
       <main class="tech-english-results" aria-live="polite">
         <header class="tech-english-results__header">
           <div><span>ENGLISH CORPUS</span><h2>{{ submittedKeyword ? `“${submittedKeyword}”的结果` : '最新语料' }}</h2></div>
-          <small v-if="!loading">{{ corpusType ? typeLabel(corpusType) : activeTag ? activeTag.name : '全部语料' }}</small>
+          <small v-if="!loading">{{ corpusType ? typeLabel(corpusType) : selectionLabel || '全部语料' }}</small>
         </header>
 
         <div v-if="loading" class="document-result-state"><FileSearch :size="25" />正在检索语料…</div>

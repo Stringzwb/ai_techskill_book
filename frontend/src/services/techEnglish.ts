@@ -17,6 +17,7 @@ export function fetchTechEnglishCorpus(params: {
   keyword?: string
   corpusType?: TechEnglishCorpusType | ''
   tagId?: number
+  tagIds?: number[]
   page?: number
   size?: number
 } = {}): Promise<TechEnglishCorpusPage> {
@@ -24,6 +25,7 @@ export function fetchTechEnglishCorpus(params: {
   if (params.keyword) query.set('keyword', params.keyword)
   if (params.corpusType) query.set('corpusType', params.corpusType)
   if (params.tagId) query.set('tagId', String(params.tagId))
+  params.tagIds?.filter((tagId) => tagId > 0).forEach((tagId) => query.append('tagIds', String(tagId)))
   query.set('page', String(params.page ?? 1))
   query.set('size', String(params.size ?? 12))
   return apiRequest<TechEnglishCorpusPage>(`/api/tech-english/corpus?${query.toString()}`)

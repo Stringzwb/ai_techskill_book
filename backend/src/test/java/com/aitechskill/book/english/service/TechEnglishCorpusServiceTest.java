@@ -88,6 +88,17 @@ class TechEnglishCorpusServiceTest {
         assertThat(response.knowledgeTags()).singleElement().satisfies(tag -> assertThat(tag.name()).isEqualTo("集合框架"));
     }
 
+    /** 验证语料库筛选会去重标签并把多个标签传给查询层。 */
+    @Test
+    void searchesCorpusWithMultipleTags() {
+        given(corpusMapper.countPublished(null, null, List.of(3L, 4L))).willReturn(0L);
+
+        var response = service.search(null, null, List.of(3L, 3L, -1L, 4L), 1, 12);
+
+        assertThat(response.total()).isZero();
+        verify(corpusMapper).countPublished(null, null, List.of(3L, 4L));
+    }
+
     /** 验证图片语料通过对象存储写入并返回同源读取地址。 */
     @Test
     void createsImageCorpusFromUploadedFile() {

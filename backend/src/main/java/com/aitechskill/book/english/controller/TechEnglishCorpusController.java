@@ -42,9 +42,14 @@ public class TechEnglishCorpusController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String corpusType,
             @RequestParam(required = false) Long tagId,
+            @RequestParam(required = false) List<Long> tagIds,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int size) {
-        return corpusService.search(keyword, corpusType, tagId, page, size);
+        List<Long> filterTagIds = tagIds == null ? new ArrayList<>() : new ArrayList<>(tagIds);
+        if (tagId != null) {
+            filterTagIds.add(tagId);
+        }
+        return corpusService.search(keyword, corpusType, filterTagIds, page, size);
     }
 
     /** 读取一条已发布技术英语语料。 */

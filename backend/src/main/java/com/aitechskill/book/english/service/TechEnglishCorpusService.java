@@ -62,21 +62,21 @@ public class TechEnglishCorpusService {
         this.objectMapper = objectMapper;
     }
 
-    /** 查询已发布语料并附加知识标签摘要。 */
+    /** 查询已发布语料并附加知识标签摘要，多个标签按命中任一标签处理。 */
     @Transactional(readOnly = true)
-    public TechEnglishCorpusPageResponse search(String keyword, String corpusType, Long tagId, int page, int size) {
+    public TechEnglishCorpusPageResponse search(String keyword, String corpusType, List<Long> tagIds, int page, int size) {
         int safePage = Math.max(page, 1);
         int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
         String normalizedType = normalizeOptionalType(corpusType);
-        Long normalizedTagId = tagId != null && tagId > 0 ? tagId : null;
-        long total = corpusMapper.countPublished(normalizedKeyword, normalizedType, normalizedTagId);
+        List<Long> normalizedTagIds = normalizeFilterTagIds(tagIds);
+        long total = corpusMapper.countPublished(normalizedKeyword, normalizedType, normalizedTagIds);
         List<TechEnglishCorpusEntity> corpus = total == 0
                 ? List.of()
                 : corpusMapper.selectPublishedPage(
                         normalizedKeyword,
                         normalizedType,
-                        normalizedTagId,
+                        normalizedTagIds,
                         (long) (safePage - 1) * safeSize,
                         safeSize);
         Map<Long, List<DocumentTagResponse>> tagsByCorpus = loadTags(corpus);
@@ -85,6 +85,16 @@ public class TechEnglishCorpusService {
                 .toList();
         int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / safeSize);
         return new TechEnglishCorpusPageResponse(total, safePage, safeSize, totalPages, items);
+    }
+
+    /** 清理语料库筛选标签，去重并忽略无效 ID。 */
+    private List<Long> normalizeFilterTagIds(List<Long> tagIds) {
+        if (tagIds == null) {
+            return List.of();
+        }
+        return new ArrayList<>(new LinkedHashSet<>(tagIds).stream()
+                .filter(tagId -> tagId != null && tagId > 0)
+                .toList());
     }
 
     /** 读取一条已发布语料详情。 */
@@ -481,6 +491,7 @@ public class TechEnglishCorpusService {
                 corpus.getArticleMarkdown(),
                 imageUrl(corpus),
                 corpus.getImageAlt(),
+                corpus.getImportBatchUuid(),
                 corpus.getSourceName(),
                 corpus.getSourceUrl(),
                 corpus.getScenario(),

@@ -11,19 +11,19 @@ import org.apache.ibatis.annotations.Param;
  */
 public interface TechEnglishCorpusMapper extends BaseMapper<TechEnglishCorpusEntity> {
 
-    /** 查询符合关键词、类型和标签条件的已发布语料。 */
+    /** 查询符合关键词、类型和多个标签条件的已发布语料。 */
     List<TechEnglishCorpusEntity> selectPublishedPage(
             @Param("keyword") String keyword,
             @Param("corpusType") String corpusType,
-            @Param("tagId") Long tagId,
+            @Param("tagIds") List<Long> tagIds,
             @Param("offset") long offset,
             @Param("size") int size);
 
-    /** 统计符合关键词、类型和标签条件的已发布语料。 */
+    /** 统计符合关键词、类型和多个标签条件的已发布语料。 */
     long countPublished(
             @Param("keyword") String keyword,
             @Param("corpusType") String corpusType,
-            @Param("tagId") Long tagId);
+            @Param("tagIds") List<Long> tagIds);
 
     /** 查询一条已发布语料。 */
     TechEnglishCorpusEntity selectPublishedById(@Param("id") long id);

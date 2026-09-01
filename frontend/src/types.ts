@@ -138,6 +138,7 @@ export interface TechEnglishCorpusPage {
 
 /** 技术英语语料详情。 */
 export interface TechEnglishCorpusDetail extends TechEnglishCorpusSummary {
+  importBatchUuid: string | null
   articleMarkdown: string | null
   sourceName: string | null
   sourceUrl: string | null

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ArrowLeft, Check, Download, FileSearch, RefreshCcw, Search, Sparkles, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
@@ -17,8 +17,10 @@ const detailError = ref('')
 const tagTree = ref<KnowledgeTagNode[]>([])
 const tagSearch = ref('')
 const selectedTagId = ref<number | null>(null)
+const tagPickerOpen = ref(false)
 const batchImporting = ref('')
 const itemTagAssignments = reactive<Record<string, number[]>>({})
+let tagPickerCloseTimer: ReturnType<typeof setTimeout> | undefined
 
 interface FlatTagOption {
   id: number
@@ -48,6 +50,29 @@ function refreshTagOptions(): void {
 function selectTag(tag: FlatTagOption): void {
   selectedTagId.value = tag.id
   tagSearch.value = tag.path
+  tagPickerOpen.value = false
+}
+
+/** 打开历史批次标签候选列表并准备新的搜索。 */
+function openTagPicker(): void {
+  if (tagPickerCloseTimer) clearTimeout(tagPickerCloseTimer)
+  tagPickerOpen.value = true
+  if (selectedTagId.value) {
+    selectedTagId.value = null
+    tagSearch.value = ''
+  }
+}
+
+/** 延迟关闭历史批次标签候选列表，保证鼠标可以点击候选项。 */
+function closeTagPicker(): void {
+  tagPickerCloseTimer = setTimeout(() => { tagPickerOpen.value = false }, 120)
+}
+
+/** 清空当前历史批次标签选择。 */
+function clearTagSelection(): void {
+  selectedTagId.value = null
+  tagSearch.value = ''
+  tagPickerOpen.value = false
   refreshTagOptions()
 }
 
@@ -191,6 +216,10 @@ onMounted(async () => {
   }
 })
 
+onBeforeUnmount(() => {
+  if (tagPickerCloseTimer) clearTimeout(tagPickerCloseTimer)
+})
+
 watch(
   () => route.query.session,
   async (session) => {
@@ -276,14 +305,14 @@ watch(
             <label>知识标签树
               <div class="tech-english-tag-search">
                 <Search :size="16" />
-                <input v-model="tagSearch" maxlength="80" placeholder="搜索并选择一个标签" @input="refreshTagOptions" />
-                <button v-if="selectedTagId" type="button" title="清除当前标签" aria-label="清除当前标签" @click="selectedTagId = null; tagSearch = ''; refreshTagOptions()"><X :size="14" /></button>
+                <input v-model="tagSearch" maxlength="80" placeholder="搜索并选择一个标签" @focus="openTagPicker" @blur="closeTagPicker" @input="refreshTagOptions; selectedTagId = null; tagPickerOpen = true" />
+                <button v-if="selectedTagId" type="button" title="清除当前标签" aria-label="清除当前标签" @click="clearTagSelection"><X :size="14" /></button>
               </div>
             </label>
-            <div v-if="!selectedTagId" class="tech-english-ai-tag-options">
+            <div v-if="tagPickerOpen" class="tech-english-ai-tag-options">
               <button v-for="tag in filteredTags" :key="tag.id" type="button" @click="selectTag(tag)"><span>{{ tag.path }}</span></button>
             </div>
-            <button v-if="selectedTagId" class="tech-english-ai-selected-tag" type="button" @click="selectedTagId = null; tagSearch = ''; refreshTagOptions()">
+            <button v-if="selectedTagId" class="tech-english-ai-selected-tag" type="button" @click="openTagPicker">
               <Check :size="14" /><span>{{ tagPath(selectedTagId) }}</span><X :size="13" />
             </button>
             <small>标签可不选；选中标签后，可在每条结果上单独追加，也可填充到当前批次未标注项。</small>

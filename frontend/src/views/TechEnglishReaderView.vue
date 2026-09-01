@@ -129,7 +129,7 @@ onMounted(loadCorpus)
             <RouterLink v-if="example.sentenceCorpusId" :to="`/tech-english/${example.sentenceCorpusId}`">已同步到句子语料</RouterLink>
           </div>
         </section>
-        <figure v-if="corpus.imageUrl" class="tech-english-detail-image">
+        <figure v-if="corpus.imageUrl && !corpus.importBatchUuid" class="tech-english-detail-image">
           <img :src="corpus.imageUrl" :alt="corpus.imageAlt || corpus.title" />
           <figcaption>{{ corpus.imageAlt || '语料来源截图' }}</figcaption>
         </figure>

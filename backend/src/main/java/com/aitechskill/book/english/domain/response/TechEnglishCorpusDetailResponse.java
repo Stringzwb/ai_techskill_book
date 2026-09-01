@@ -19,6 +19,7 @@ import java.util.List;
  * @param articleMarkdown 英语文章正文
  * @param imageUrl 图片访问地址
  * @param imageAlt 图片替代文本
+ * @param importBatchUuid AI 截图导入批次标识
  * @param sourceName 来源名称
  * @param sourceUrl 来源链接
  * @param scenario 技术场景
@@ -47,6 +48,7 @@ public record TechEnglishCorpusDetailResponse(
         String articleMarkdown,
         String imageUrl,
         String imageAlt,
+        String importBatchUuid,
         String sourceName,
         String sourceUrl,
         String scenario,

@@ -153,6 +153,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tag-selector-icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--primary); border-radius: 10px; background: var(--primary-soft); }
 .knowledge-tag-selector small, .document-library-empty small { color: var(--primary); font-size: 11px; font-weight: 800; letter-spacing: 0.08em; }
 .knowledge-tag-selector h2 { margin: 4px 0 0; font-size: 18px; }
+.knowledge-tag-multi-selector { margin-top: 8px; }
+.knowledge-tag-multi-selector > header { display: flex; align-items: center; gap: 10px; }
+.knowledge-tag-multi-selector small { color: var(--primary); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.knowledge-tag-multi-selector h2 { margin: 4px 0 0; font-size: 17px; }
+.knowledge-tag-multi-selector__field { margin-top: 18px; display: grid; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.knowledge-tag-multi-selector__field select { width: 100%; min-height: 184px; padding: 5px; color: var(--text); border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--surface-soft); }
+.knowledge-tag-multi-selector__field select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 12%, transparent); }
+.knowledge-tag-multi-selector__field option { padding: 7px 8px; border-radius: 5px; }
+.knowledge-tag-multi-selector__field option:checked { color: var(--primary); background: var(--primary-soft); }
+.knowledge-tag-multi-selector__field small { color: var(--subtle); font-weight: 500; letter-spacing: 0; }
 .tag-selector-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 26px; }
 .tag-selector-fields label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 650; }
 .tag-selector-fields select { width: 100%; min-width: 0; height: 43px; padding: 0 34px 0 12px; color: var(--text); border: 1px solid var(--border); border-radius: 8px; outline: 0; background: var(--surface-soft); }
