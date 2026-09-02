@@ -123,8 +123,8 @@ public class TechEnglishCorpusReportService {
             appendCard(cards, index + 1, corpus.get(index));
         }
         return """
-                <!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
-                <meta name="viewport" content="width=device-width,initial-scale=1">
+                <html lang="zh-CN"><head><meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width,initial-scale=1"/>
                 <title>技术英语语料报告</title><style>
                 @page{size:A4;margin:14mm}
                 :root{--ink:#202633;--muted:#667085;--line:#d8dee8;--paper:#f7f9fc;--green:#0f8f72;--blue:#2957c8;--rose:#b44765}
