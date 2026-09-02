@@ -1,0 +1,27 @@
+技术英语高对比度工作台与数据清理
+
+本次发布内容
+1. 识图工作台改为高对比度白底内容区，移除深色/橙色装饰横幅和左侧说明栏，上传区成为主要操作焦点。
+2. 识图结果不再展示场景标签块，避免把生活场景和语料内容混在一起。
+3. 技术英语语料库提供紧凑列表、学习卡片、方块速览三种展示方式。
+
+发布版本
+- 线上仓库提交：5fb5d3d
+- 部署主机：项目生产机（不在文档中记录地址）
+
+部署前验证
+- 后端 mvn clean test package：54 个测试通过，1 个对象存储集成测试跳过。
+- 前端 npm ci、npm run build：通过。
+
+线上验证
+- /actuator/health：UP
+- /api/ping：正常
+- HTTPS 首页：200
+- ai-techskill-book.service、nginx.service、redis.service、证书续期 timer：active
+
+测试数据清理
+- 清空 tech_english_corpus、tech_english_corpus_tag、tech_english_vocabulary_example、tech_english_sentence_pattern、tech_english_sentence_pattern_corpus、tech_english_ai_recognition_record。
+- 清理前计数：语料 37、例句 58、句式 4、句式关联 4、识图任务 2。
+- 清理后上述表计数均为 0；Flyway 成功迁移记录保留。
+- 删除对象存储 prod/tech_english/ 前缀下的 10 个识图来源图片对象。
+- 知识标签、Flyway 表和其他业务模块数据未清理。
