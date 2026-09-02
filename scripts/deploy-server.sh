@@ -9,14 +9,58 @@ FRONTEND_DIR="${PROJECT_DIR}/frontend"
 RUNTIME_DIR="/opt/ai-techskill-book"
 WEB_ROOT="/var/www/ai-techskill-book"
 NGINX_CONFIG="/etc/nginx/conf.d/ai-techskill-book.conf"
+SERVICE_NAME="ai-techskill-book.service"
+EXPECTED_PUBLIC_IP="38.22.90.174"
+EXPECTED_GIT_REMOTE="https://github.com/Stringzwb/ai_techskill_book.git"
+EXPECTED_GIT_SSH_REMOTE="git@github.com:Stringzwb/ai_techskill_book.git"
+CERT_DIR="/etc/letsencrypt/live/${EXPECTED_PUBLIC_IP}"
 DEPLOY_TIME="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="${RUNTIME_DIR}/backups/${DEPLOY_TIME}"
+
+fail() {
+  echo "部署前校验失败：$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" > /dev/null 2>&1 || fail "缺少命令 $1"
+}
 
 # 生产部署必须由 root 执行。
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "请使用 root 用户执行部署脚本" >&2
   exit 1
 fi
+
+require_command git
+require_command mvn
+require_command npm
+require_command curl
+require_command systemctl
+require_command nginx
+
+# 部署脚本只允许在本项目生产机执行，避免 SSH 工具误连到其他服务器。
+[[ -d "${PROJECT_DIR}/.git" ]] || fail "未找到 ${PROJECT_DIR}/.git"
+PRIMARY_IP="$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1 || true)"
+ALL_IPS="$(hostname -I 2>/dev/null || true)"
+if [[ "${PRIMARY_IP}" != "${EXPECTED_PUBLIC_IP}" && " ${ALL_IPS} " != *" ${EXPECTED_PUBLIC_IP} "* ]]; then
+  fail "当前主机 IP 不包含 ${EXPECTED_PUBLIC_IP}，PRIMARY_IP=${PRIMARY_IP:-unknown}"
+fi
+
+CURRENT_BRANCH="$(git -C "${PROJECT_DIR}" rev-parse --abbrev-ref HEAD)"
+[[ "${CURRENT_BRANCH}" == "main" ]] || fail "当前分支是 ${CURRENT_BRANCH}，预期 main"
+
+REMOTE_URL="$(git -C "${PROJECT_DIR}" remote get-url origin)"
+if [[ "${REMOTE_URL}" != "${EXPECTED_GIT_REMOTE}" && "${REMOTE_URL}" != "${EXPECTED_GIT_SSH_REMOTE}" ]]; then
+  fail "origin remote 不匹配预期仓库"
+fi
+
+git -C "${PROJECT_DIR}" diff --quiet || fail "工作区存在未提交的 tracked 修改"
+git -C "${PROJECT_DIR}" diff --cached --quiet || fail "暂存区存在未提交修改"
+systemctl list-unit-files "${SERVICE_NAME}" --no-legend | grep -q "^${SERVICE_NAME}[[:space:]]" \
+  || fail "未找到 ${SERVICE_NAME}"
+[[ -s "${CERT_DIR}/fullchain.pem" ]] || fail "证书不存在：${CERT_DIR}/fullchain.pem"
+[[ -x /opt/certbot/bin/certbot ]] || fail "certbot 不存在或不可执行"
 
 # 只允许从远端 main 快进更新源码。
 git -C "${PROJECT_DIR}" pull --ff-only origin main
@@ -39,15 +83,15 @@ if [[ -f "${NGINX_CONFIG}" ]]; then
 fi
 
 # 安装 HTTPS 配置和短期证书自动续期任务。
-test -s /etc/letsencrypt/live/38.22.90.174/fullchain.pem
-test -x /opt/certbot/bin/certbot
 install -o root -g root -m 644 "${PROJECT_DIR}/deploy/nginx/ai-techskill-book.conf" "${NGINX_CONFIG}"
 install -o root -g root -m 644 "${PROJECT_DIR}/deploy/systemd/certbot-renew-ai-techskill-book.service" /etc/systemd/system/certbot-renew-ai-techskill-book.service
 install -o root -g root -m 644 "${PROJECT_DIR}/deploy/systemd/certbot-renew-ai-techskill-book.timer" /etc/systemd/system/certbot-renew-ai-techskill-book.timer
 systemctl daemon-reload
 systemctl enable --now certbot-renew-ai-techskill-book.timer
 if ! nginx -t; then
-  cp -a "${BACKUP_DIR}/ai-techskill-book.conf" "${NGINX_CONFIG}"
+  if [[ -f "${BACKUP_DIR}/ai-techskill-book.conf" ]]; then
+    cp -a "${BACKUP_DIR}/ai-techskill-book.conf" "${NGINX_CONFIG}"
+  fi
   nginx -t
   exit 1
 fi
@@ -63,7 +107,7 @@ find "${WEB_ROOT}" -type d -exec chmod 755 {} +
 find "${WEB_ROOT}" -type f -exec chmod 644 {} +
 
 # 重启服务并完成上线检查。
-systemctl restart ai-techskill-book.service
+systemctl restart "${SERVICE_NAME}"
 systemctl restart nginx.service
 
 # 最多等待 30 秒，避免应用正常启动期间误报部署失败。
@@ -76,14 +120,14 @@ for _ in {1..30}; do
   sleep 1
 done
 if [[ "${BACKEND_READY}" -ne 1 ]]; then
-  systemctl status ai-techskill-book.service --no-pager
-  journalctl -u ai-techskill-book.service -n 80 --no-pager
+  systemctl status "${SERVICE_NAME}" --no-pager
+  journalctl -u "${SERVICE_NAME}" -n 80 --no-pager
   exit 1
 fi
 
 curl -fsS http://127.0.0.1:8080/actuator/health
 curl -fsS http://127.0.0.1:8080/api/ping
-curl -fsSI --resolve 38.22.90.174:443:127.0.0.1 https://38.22.90.174/
+curl -fsSI --resolve "${EXPECTED_PUBLIC_IP}:443:127.0.0.1" "https://${EXPECTED_PUBLIC_IP}/"
 systemctl is-active redis.service
 systemctl is-active certbot-renew-ai-techskill-book.timer
 
