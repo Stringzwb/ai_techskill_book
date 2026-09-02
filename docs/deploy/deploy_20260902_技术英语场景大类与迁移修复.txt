@@ -1,0 +1,20 @@
+部署时间：2026-09-02 16:13（Asia/Shanghai）
+生产主机：38.22.90.174
+线上仓库提交：6bd2616
+
+本次内容：
+- 技术英语页面改为单一清晰阅读列表，固定四个入口：单词、短语与句式、句子、文章。
+- 句式（PATTERN）从完整句子（SENTENCE）中独立建模；历史句式已生成 4 条独立语料。
+- 场景标签改为少量可由 AI 判断的生活/工作大类：饮食、旅游、工作、居住、交通、学习、购物、社交。
+- V20 清理历史技术模块场景标签；主页面不展示截图来源关联。
+
+验证：
+- 本地后端 `mvn clean test package`：54 个测试通过，1 个对象存储集成测试跳过。
+- 本地前端 `npm run build`：通过。
+- 首次部署发现 V19 标题字段过长导致 Flyway 失败；已修正迁移脚本并只删除数据库中该版本的 `success=0` 历史记录后重跑。
+- Flyway V19、V20：success=1。
+- 线上语料计数：PATTERN 4、PHRASE 1、SENTENCE 4、VOCABULARY 28。
+- `/actuator/health` 返回 `{"status":"UP"}`；`/api/ping` 返回 `ok`；HTTPS 首页 200。
+- ai-techskill-book.service、nginx.service、redis.service、certbot-renew-ai-techskill-book.timer 均 active。
+
+备份目录由部署脚本按本次时间戳生成，保留在 `/opt/ai-techskill-book/backups/`。
