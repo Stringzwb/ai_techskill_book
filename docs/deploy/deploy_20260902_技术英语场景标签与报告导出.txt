@@ -19,3 +19,14 @@
 中间件更新内容
 1. 无新增中间件。
 2. PDF 导出使用后端 HTML 渲染，优先加载服务器已有中文字体。
+
+部署执行记录
+1. 部署时间：2026-09-02 14:16-14:17（Asia/Shanghai）。
+2. 发布提交：2434899 chore: harden production deploy checks。
+3. 生产机只读校验：主机公网 IP 包含 38.22.90.174，项目目录为 /home/ai_techskill_book，分支为 main，服务 ai-techskill-book.service 存在。
+4. 部署命令：先快进拉取 origin/main，再执行 /home/ai_techskill_book/scripts/deploy-server.sh。
+5. 后端构建：mvn clean test package 通过，54 项测试通过，1 项对象存储集成测试跳过。
+6. 前端构建：npm ci 与 npm run build 通过。
+7. 上线校验：/actuator/health 返回 UP，/api/ping 返回 ok，HTTPS 首页返回 200，redis.service 与 certbot-renew-ai-techskill-book.timer 均为 active。
+8. 备份目录：/opt/ai-techskill-book/backups/20260902_141658。
+9. 本次部署未记录服务器账号、密码、Token 或环境变量真实值。
