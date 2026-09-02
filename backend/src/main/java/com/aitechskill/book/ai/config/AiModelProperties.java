@@ -21,7 +21,7 @@ public class AiModelProperties {
     private String baseUrl = "https://www.bb-api.com/v1";
 
     /** 文本和视觉共用的模型名称。 */
-    private String model = "gpt-5.5";
+    private String model = "gpt-5.6-terra";
 
     /** 主用 API 密钥。 */
     private String primaryApiKey;

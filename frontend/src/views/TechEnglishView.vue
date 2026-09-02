@@ -66,6 +66,7 @@ const aiTagPickerOpen = ref(false)
 const aiImages = ref<AiImagePreview[]>([])
 const aiDragActive = ref(false)
 const aiImporting = ref(false)
+const aiImportProgress = ref({ current: 0, total: 0 })
 const aiConfirming = ref(false)
 const aiRetryingChunk = ref<number | null>(null)
 const aiImportError = ref('')
@@ -618,7 +619,7 @@ async function submitAiImport(): Promise<void> {
   }
   const chunks = splitAiImages(aiImages.value, AI_CHUNK_SIZE)
   if (chunks.length > 4) {
-    aiImportError.value = '最多支持 4 组并发识别，请把截图控制在 20 张以内'
+    aiImportError.value = '最多支持 4 组识别，请把截图控制在 20 张以内'
     return
   }
   if (!Number.isInteger(aiExampleCount.value) || aiExampleCount.value < 0 || aiExampleCount.value > 5) {
@@ -629,15 +630,26 @@ async function submitAiImport(): Promise<void> {
   try {
     const sessionUuid = createAiSessionUuid()
     aiSessionUuid.value = sessionUuid
-    const settled = await Promise.allSettled(chunks.map((chunk, index) => importTechEnglishScreenshots({
-      sessionUuid,
-      chunkIndex: index + 1,
-      chunkCount: chunks.length,
-      batchName: aiBatchName.value.trim(),
-      scenario: aiScenario.value.trim(),
-      exampleCount: aiExampleCount.value,
-      images: chunk.map((item) => item.file),
-    })))
+    aiImportProgress.value = { current: 0, total: chunks.length }
+    const settled: PromiseSettledResult<TechEnglishAiRecognitionResponse>[] = []
+    for (let index = 0; index < chunks.length; index += 1) {
+      const chunk = chunks[index]
+      aiImportProgress.value = { current: index + 1, total: chunks.length }
+      try {
+        const value = await importTechEnglishScreenshots({
+          sessionUuid,
+          chunkIndex: index + 1,
+          chunkCount: chunks.length,
+          batchName: aiBatchName.value.trim(),
+          scenario: aiScenario.value.trim(),
+          exampleCount: aiExampleCount.value,
+          images: chunk.map((item) => item.file),
+        })
+        settled.push({ status: 'fulfilled', value })
+      } catch (reason) {
+        settled.push({ status: 'rejected', reason })
+      }
+    }
     const results = await recoverRecognitionResults(sessionUuid, chunks, settled)
     const failures = results
       .map((item) => (item.failed && !item.processing ? `第 ${item.chunkIndex} 组：${item.errorMessage || '识别失败'}` : ''))
@@ -663,6 +675,7 @@ async function submitAiImport(): Promise<void> {
     aiImportError.value = error instanceof Error ? error.message : '截图识别失败，请稍后重试'
   } finally {
     aiImporting.value = false
+    aiImportProgress.value = { current: 0, total: 0 }
   }
 }
 
@@ -864,7 +877,7 @@ onBeforeUnmount(() => {
         <main class="tech-english-ai-panel">
           <div class="tech-english-ai-panel__heading">
             <div><small>02 · 上传阅读截图</small><strong>{{ aiImages.length }} / 20 张</strong></div>
-            <button v-if="aiImages.length" type="button" @click="resetAiImport"><RotateCcw :size="14" />重新选择</button>
+            <button v-if="aiImages.length" type="button" :disabled="aiImporting" @click="resetAiImport"><RotateCcw :size="14" />重新选择</button>
           </div>
 
           <button
@@ -919,7 +932,7 @@ onBeforeUnmount(() => {
           <footer v-else-if="!aiRecognitionResults.length && !aiImportResults.length" class="tech-english-ai-submit">
             <p><strong>先识别，不入库</strong><span>下一步会展示完整结果，再由你给每条内容选标签并确认。</span></p>
             <button class="primary-button" type="submit" :disabled="aiImporting">
-              <Sparkles :size="17" />{{ aiImporting ? '正在识别图片…' : `开始识别 ${aiImages.length || ''} 张图片` }}
+              <Sparkles :size="17" />{{ aiImporting ? `正在识别第 ${aiImportProgress.current} / ${aiImportProgress.total} 组…` : `开始识别 ${aiImages.length || ''} 张图片` }}
             </button>
           </footer>
 

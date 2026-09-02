@@ -97,7 +97,7 @@ app:
     # OpenAI 兼容 API 根地址，LangChain4j 使用 Chat Completions 协议。
     base-url: ${AI_BASE_URL:https://www.bb-api.com/v1}
     # 文字和图片对话共用模型。
-    model: ${AI_MODEL:gpt-5.5}
+    model: ${AI_MODEL:gpt-5.6-terra}
     # 主用 API Key，只允许从运行时环境注入。
     primary-api-key: ${AI_PRIMARY_API_KEY:}
     # 备用 API Key，主 Key 调用失败时自动切换。
