@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowRight, BookOpenText, Check, FileSearch, FileText, Image, Languages, LayoutGrid, List, LogIn, Plus, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
+import { ArrowRight, BookOpenText, Check, FileSearch, FileText, Image, Languages, LayoutGrid, List, LogIn, Plus, RotateCcw, Rows3, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import KnowledgeTagMultiSelector from '../components/KnowledgeTagMultiSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
@@ -30,7 +30,7 @@ const AI_MAX_IMAGES = 20
 const AI_CHUNK_SIZE = 5
 const CORPUS_PAGE_SIZE = 20
 
-type CorpusViewMode = 'compact' | 'grid'
+type CorpusViewMode = 'compact' | 'grid' | 'stream'
 
 const keyword = ref('')
 const route = useRoute()
@@ -680,7 +680,7 @@ async function submitCorpus(): Promise<void> {
 
 onMounted(() => {
   const savedViewMode = window.localStorage.getItem('tech-english-corpus-view-mode')
-  if (savedViewMode === 'compact' || savedViewMode === 'grid') corpusViewMode.value = savedViewMode
+  if (savedViewMode === 'compact' || savedViewMode === 'grid' || savedViewMode === 'stream') corpusViewMode.value = savedViewMode
   if (!isAiImportPage.value) void loadCorpus()
   void loadCreateTags()
 })
@@ -1094,6 +1094,7 @@ onBeforeUnmount(() => {
             <div class="tech-english-view-switch" aria-label="语料展示方式">
               <button type="button" :class="{ active: corpusViewMode === 'compact' }" :aria-pressed="corpusViewMode === 'compact'" @click="setCorpusViewMode('compact')"><List :size="15" />紧凑列表</button>
               <button type="button" :class="{ active: corpusViewMode === 'grid' }" :aria-pressed="corpusViewMode === 'grid'" @click="setCorpusViewMode('grid')"><LayoutGrid :size="15" />卡片网格</button>
+              <button type="button" :class="{ active: corpusViewMode === 'stream' }" :aria-pressed="corpusViewMode === 'stream'" @click="setCorpusViewMode('stream')"><Rows3 :size="15" />语料速览</button>
             </div>
           </div>
         </header>
@@ -1114,6 +1115,10 @@ onBeforeUnmount(() => {
             <h3>{{ item.title }}</h3>
             <p class="tech-english-result-item__english">{{ summaryText(item) }}</p>
             <p v-if="item.translationText" class="tech-english-result-item__translation">{{ item.translationText }}</p>
+            <section v-if="item.sentencePattern" class="tech-english-result-item__pattern">
+              <small>句式框架</small><strong>{{ item.sentencePattern }}</strong>
+              <p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
+            </section>
             <figure v-if="item.corpusType === 'IMAGE' && item.imageUrl">
               <img :src="item.imageUrl" :alt="item.imageAlt || item.title" />
             </figure>

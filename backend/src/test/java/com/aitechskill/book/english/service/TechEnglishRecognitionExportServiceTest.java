@@ -23,7 +23,7 @@ class TechEnglishRecognitionExportServiceTest {
     @Mock
     private TechEnglishAiRecognitionRecordService recordService;
 
-    /** HTML 导出应保留 CSS 百分号和识别内容。 */
+    /** HTML 导出应保留识别内容，并提供可切换的紧凑、卡片与阅读视图。 */
     @Test
     void exportsHtmlWithoutTreatingCssPercentAsFormatSpecifier() {
         LocalDateTime createdAt = LocalDateTime.of(2026, 9, 1, 20, 0, 0);
@@ -44,7 +44,10 @@ class TechEnglishRecognitionExportServiceTest {
 
         assertThat(export.contentType()).isEqualTo("text/html;charset=UTF-8");
         assertThat(html)
-                .contains("width:min(980px,calc(100% - 32px))")
+                .contains("body class=\"view-compact\"")
+                .contains("data-view=\"compact\"")
+                .contains("data-view=\"cards\"")
+                .contains("data-view=\"reading\"")
                 .contains("来源：测试来源")
                 .contains("resilient &lt;word&gt;")
                 .doesNotContain("MissingFormatWidthException");

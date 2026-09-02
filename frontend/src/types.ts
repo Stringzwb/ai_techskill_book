@@ -123,6 +123,8 @@ export interface TechEnglishCorpusSummary {
   difficulty: TechEnglishDifficulty
   tags: string | null
   translationText: string | null
+  sentencePattern: string | null
+  sentencePatternExplanation: string | null
   publishedAt: string | null
   knowledgeTags: DocumentTag[]
 }
@@ -142,8 +144,6 @@ export interface TechEnglishCorpusDetail extends TechEnglishCorpusSummary {
   articleMarkdown: string | null
   sourceName: string | null
   sourceUrl: string | null
-  sentencePattern: string | null
-  sentencePatternExplanation: string | null
   keyVocabulary: TechEnglishKeyVocabulary[]
   patternExamples: TechEnglishPatternExample[]
   updatedAt: string

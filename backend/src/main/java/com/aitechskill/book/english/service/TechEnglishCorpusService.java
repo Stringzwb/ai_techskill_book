@@ -496,6 +496,8 @@ public class TechEnglishCorpusService {
                 corpus.getDifficulty(),
                 corpus.getTags(),
                 corpus.getTranslationText(),
+                corpus.getSentencePattern(),
+                corpus.getSentencePatternExplanation(),
                 corpus.getPublishedAt(),
                 tags);
     }

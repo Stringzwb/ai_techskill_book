@@ -22,6 +22,8 @@ import java.util.List;
  * @param difficulty 难度
  * @param tags 轻量标签
  * @param translationText 翻译文本
+ * @param sentencePattern 可复用句式框架
+ * @param sentencePatternExplanation 句式框架解析
  * @param publishedAt 发布时间
  * @param knowledgeTags 关联知识标签
  */
@@ -41,6 +43,8 @@ public record TechEnglishCorpusSummaryResponse(
         String difficulty,
         String tags,
         String translationText,
+        String sentencePattern,
+        String sentencePatternExplanation,
         LocalDateTime publishedAt,
         List<DocumentTagResponse> knowledgeTags) {
 }
