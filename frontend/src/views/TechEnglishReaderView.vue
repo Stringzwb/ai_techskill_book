@@ -269,10 +269,6 @@ onMounted(() => {
             <small v-if="failedExampleId === example.id" class="tech-english-example-save__error">{{ exampleSaveError }}</small>
           </div>
         </section>
-        <figure v-if="corpus.imageUrl && !corpus.importBatchUuid" class="tech-english-detail-image">
-          <img :src="corpus.imageUrl" :alt="corpus.imageAlt || corpus.title" />
-          <figcaption>{{ corpus.imageAlt || '语料来源截图' }}</figcaption>
-        </figure>
         <MarkdownContent v-if="corpus.articleMarkdown" :markdown="corpus.articleMarkdown" />
       </main>
     </template>

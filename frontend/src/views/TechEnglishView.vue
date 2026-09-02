@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowRight, BookOpenText, Check, Download, FileSearch, FileText, Languages, LayoutGrid, List, LogIn, Plus, RotateCcw, Rows3, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
+import { ArrowRight, BookOpenText, Check, Download, FileDown, FileSearch, FileText, Languages, LayoutGrid, List, LogIn, Plus, RotateCcw, Rows3, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import KnowledgeTagMultiSelector from '../components/KnowledgeTagMultiSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
@@ -41,6 +41,7 @@ const filterTagIds = ref<number[]>([])
 const result = ref<TechEnglishCorpusPage>({ total: 0, page: 1, size: CORPUS_PAGE_SIZE, totalPages: 0, items: [] })
 const corpusViewMode = ref<CorpusViewMode>('compact')
 const selectedReportIds = ref<number[]>([])
+const reportSelectMode = ref(false)
 const loading = ref(true)
 const errorMessage = ref('')
 const selectorKey = ref(0)
@@ -252,18 +253,28 @@ function isReportSelected(id: number): boolean {
 }
 
 /** 切换报告语料选择，最多 100 条。 */
-function toggleReportSelection(id: number): void {
+function toggleReportSelection(id: number, event?: Event): void {
+  event?.stopPropagation()
   if (isReportSelected(id)) {
     selectedReportIds.value = selectedReportIds.value.filter((value) => value !== id)
+    if (!selectedReportIds.value.length) reportSelectMode.value = false
     return
   }
   if (selectedReportIds.value.length >= 100) return
+  reportSelectMode.value = true
   selectedReportIds.value = [...selectedReportIds.value, id]
 }
 
 /** 清空报告选择。 */
 function clearReportSelection(): void {
   selectedReportIds.value = []
+  reportSelectMode.value = false
+}
+
+/** 打开或关闭报告选择模式。 */
+function toggleReportSelectMode(): void {
+  reportSelectMode.value = !reportSelectMode.value
+  if (!reportSelectMode.value && !selectedReportIds.value.length) return
 }
 
 /** 下载选中语料报告。 */
@@ -744,11 +755,11 @@ onBeforeUnmount(() => {
         <div>
           <span><Sparkles :size="14" /> AI SCREENSHOT IMPORT</span>
           <h2 id="tech-english-ai-title">上传与自动分类</h2>
-          <p>最多 20 张截图，每组 5 张，自动拆成最多 4 个并发识别任务。标签可逐条编辑，也可按分组批量处理。</p>
+          <p>最多 20 张图片，每组 5 张，自动拆成最多 4 个并发识别任务。标签可逐条编辑，也可按分组批量处理。</p>
         </div>
         <div class="tech-english-ai-source">
-          <small>识别来源</small>
-          <strong>服务器预设来源</strong>
+          <small>历史记录</small>
+          <strong>查看识别会话</strong>
           <RouterLink class="secondary-button" to="/tech-english/history"><FileSearch :size="16" />识图记录</RouterLink>
         </div>
       </header>
@@ -766,7 +777,7 @@ onBeforeUnmount(() => {
             <p><Languages :size="15" /><span><strong>句式配置</strong>翻译、重点词汇、可复用句式框架与例句</span></p>
           </div>
           <div class="tech-english-ai-flow">
-            <span>1</span><p>上传截图并自动切成 5 张一组</p>
+            <span>1</span><p>上传图片并自动切成 5 张一组</p>
             <span>2</span><p>查看每条识别结果并单独选标签</p>
             <span>3</span><p>一次确认后完成入库</p>
           </div>
@@ -820,13 +831,13 @@ onBeforeUnmount(() => {
 
           <div v-if="aiImportError" class="tech-english-ai-message tech-english-ai-message--error">{{ aiImportError }}</div>
           <div v-if="!authStore.state.user" class="tech-english-ai-login">
-            <span>登录后即可识别截图，并在确认结果时选择知识标签。</span>
+            <span>登录后即可识别图片，并在确认结果时选择知识标签。</span>
             <RouterLink class="primary-button" to="/login"><LogIn :size="16" />前往登录</RouterLink>
           </div>
           <footer v-else-if="!aiRecognitionResults.length && !aiImportResults.length" class="tech-english-ai-submit">
             <p><strong>先识别，不入库</strong><span>下一步会展示完整结果，再由你给每条内容选标签并确认。</span></p>
             <button class="primary-button" type="submit" :disabled="aiImporting">
-              <Sparkles :size="17" />{{ aiImporting ? '正在识别截图…' : `开始识别 ${aiImages.length || ''} 张截图` }}
+              <Sparkles :size="17" />{{ aiImporting ? '正在识别图片…' : `开始识别 ${aiImages.length || ''} 张图片` }}
             </button>
           </footer>
 
@@ -875,9 +886,9 @@ onBeforeUnmount(() => {
                 </header>
                 <p v-if="batch.failed" class="tech-english-ai-message tech-english-ai-message--error">{{ batch.errorMessage || '本组识别失败，可单独重试。' }}</p>
                 <div v-else class="tech-english-ai-review__list">
-                  <article v-for="item in batch.items" :key="item.itemKey" class="tech-english-ai-item">
+                  <article v-for="(item, itemIndex) in batch.items" :key="item.itemKey" class="tech-english-ai-item">
                     <header>
-                      <span>截图 {{ item.sourceImageIndex }}</span>
+                      <span>候选 {{ itemIndex + 1 }}</span>
                       <small>{{ recognitionTypeLabel(item.corpusType) }}</small>
                     </header>
                     <h3>{{ item.englishText }}</h3>
@@ -927,8 +938,7 @@ onBeforeUnmount(() => {
 
           <section v-if="aiImportResults.length" class="tech-english-ai-result" aria-live="polite">
             <header>
-              <div><Check :size="19" /><span><strong>识别入库完成</strong><small>{{ aiImportResults.reduce((total, batch) => total + batch.imageCount, 0) }} 张截图，共创建 {{ aiImportedCount }} 条语料</small></span></div>
-              <small>来源 · {{ aiImportResults[0]?.sourceName ?? '识图结果' }}</small>
+              <div><Check :size="19" /><span><strong>识别入库完成</strong><small>共创建 {{ aiImportedCount }} 条语料</small></span></div>
             </header>
             <div class="tech-english-ai-result__grid">
               <RouterLink v-for="item in aiImportResults.flatMap((batch) => batch.items)" :key="item.id" :to="`/tech-english/${item.id}`">
@@ -1102,6 +1112,10 @@ onBeforeUnmount(() => {
           <div><span>ENGLISH CORPUS</span><h2>{{ submittedKeyword ? `“${submittedKeyword}”的结果` : '最新语料' }}</h2></div>
           <div class="tech-english-results__tools">
             <small v-if="!loading">{{ corpusType ? typeLabel(corpusType) : selectionLabel || '全部语料' }}</small>
+            <button class="tech-english-report-toggle" type="button" :class="{ active: reportSelectMode || selectedReportCount }" title="报告篮" aria-label="报告篮" @click="toggleReportSelectMode">
+              <FileDown :size="15" />
+              <span v-if="selectedReportCount">{{ selectedReportCount }}</span>
+            </button>
             <div class="tech-english-view-switch" aria-label="语料展示方式">
               <button type="button" :class="{ active: corpusViewMode === 'compact' }" :aria-pressed="corpusViewMode === 'compact'" @click="setCorpusViewMode('compact')"><List :size="15" />紧凑列表</button>
               <button type="button" :class="{ active: corpusViewMode === 'grid' }" :aria-pressed="corpusViewMode === 'grid'" @click="setCorpusViewMode('grid')"><LayoutGrid :size="15" />卡片网格</button>
@@ -1109,12 +1123,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </header>
-        <section v-if="selectedReportCount" class="tech-english-report-bar">
-          <span>已选 {{ selectedReportCount }} / 100 条</span>
-          <button type="button" @click="exportCorpusReport('html')"><Download :size="14" />HTML</button>
-          <button type="button" @click="exportCorpusReport('pdf')"><Download :size="14" />PDF</button>
-          <button type="button" @click="clearReportSelection">清空</button>
-        </section>
 
         <div v-if="loading" class="document-result-state"><FileSearch :size="25" />正在检索语料…</div>
         <div v-else-if="errorMessage" class="document-result-state document-result-state--error">
@@ -1124,14 +1132,13 @@ onBeforeUnmount(() => {
           <BookOpenText :size="27" /><strong>没有找到匹配语料</strong><span>可以更换关键词、语料类型或知识标签。</span>
         </div>
         <div v-else class="tech-english-result-list" :class="`tech-english-result-list--${corpusViewMode}`">
-          <article v-for="item in result.items" :key="item.id" class="tech-english-result-item" :class="`tech-english-result-item--${corpusViewMode}`">
+          <article v-for="item in result.items" :key="item.id" class="tech-english-result-item" :class="[`tech-english-result-item--${corpusViewMode}`, { 'is-selecting': reportSelectMode, 'is-selected': isReportSelected(item.id) }]">
             <div class="tech-english-result-item__meta">
               <span>{{ typeLabel(item.corpusType) }}</span>
               <small>{{ item.scenario || item.scenarioTags[0]?.label || 'general' }} · {{ difficultyLabel(item.difficulty) }}</small>
             </div>
-            <button class="tech-english-report-pick" type="button" :class="{ active: isReportSelected(item.id) }" :disabled="!isReportSelected(item.id) && selectedReportCount >= 100" @click="toggleReportSelection(item.id)">
-              <Check v-if="isReportSelected(item.id)" :size="13" /><Plus v-else :size="13" />
-              <span>{{ isReportSelected(item.id) ? '已选报告' : '加入报告' }}</span>
+            <button class="tech-english-report-pick" type="button" :class="{ active: isReportSelected(item.id) }" :disabled="!isReportSelected(item.id) && selectedReportCount >= 100" title="选择到报告篮" :aria-label="isReportSelected(item.id) ? '从报告篮移除' : '选择到报告篮'" @click="toggleReportSelection(item.id, $event)">
+              <Check v-if="isReportSelected(item.id)" :size="14" />
             </button>
             <h3>{{ item.title }}</h3>
             <p class="tech-english-result-item__english">{{ summaryText(item) }}</p>
@@ -1140,9 +1147,6 @@ onBeforeUnmount(() => {
               <small>句式框架</small><strong>{{ item.sentencePattern }}</strong>
               <p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
             </section>
-            <figure v-if="item.imageUrl && corpusViewMode === 'grid'">
-              <img :src="item.imageUrl" :alt="item.imageAlt || item.title" />
-            </figure>
             <footer>
               <div class="document-result-tags">
                 <span v-for="tag in item.scenarioTags" :key="tag.code" class="scene-tag">{{ tag.label }}</span>
@@ -1160,5 +1164,17 @@ onBeforeUnmount(() => {
         </nav>
       </main>
     </div>
+
+    <Teleport v-if="!isAiImportPage && selectedReportCount" to="body">
+      <section class="tech-english-report-dock" aria-label="语料报告篮">
+        <div>
+          <FileDown :size="17" />
+          <span><strong>{{ selectedReportCount }}</strong><small>/ 100</small></span>
+        </div>
+        <button type="button" title="导出 HTML" aria-label="导出 HTML" @click="exportCorpusReport('html')"><Download :size="15" /><span>HTML</span></button>
+        <button type="button" title="导出 PDF" aria-label="导出 PDF" @click="exportCorpusReport('pdf')"><Download :size="15" /><span>PDF</span></button>
+        <button type="button" title="清空报告篮" aria-label="清空报告篮" @click="clearReportSelection"><X :size="15" /></button>
+      </section>
+    </Teleport>
   </section>
 </template>
