@@ -4,8 +4,8 @@ INSERT INTO tech_english_corpus
     (corpus_uuid, corpus_type, title, english_text, explanation,
      translation_status, ai_review_status, index_status, content_version,
      status, published_at, createby, updateby, deleted)
-SELECT UUID(), 'PATTERN', normalized.pattern_text, normalized.pattern_text,
-       normalized.pattern_explanation,
+SELECT UUID(), 'PATTERN', LEFT(normalized.pattern_text, 160), normalized.pattern_text,
+       LEFT(normalized.pattern_explanation, 1000),
        'NONE', 'REVIEWED', 'NOT_INDEXED', 1,
        'PUBLISHED', CURRENT_TIMESTAMP, 0, 0, 0
 FROM (

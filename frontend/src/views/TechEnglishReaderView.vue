@@ -36,11 +36,11 @@ const corpusId = computed(() => Number(route.params.id))
 /** 转换语料类型展示文案。 */
 function typeLabel(value: TechEnglishCorpusType): string {
   const labels: Record<TechEnglishCorpusType, string> = {
-    VOCABULARY: '词汇',
+    VOCABULARY: '单词',
     PHRASE: '短语',
     PATTERN: '句式',
     SENTENCE: '句子',
-    ARTICLE: '英语文章',
+    ARTICLE: '文章',
   }
   return labels[value] ?? value
 }
@@ -202,7 +202,7 @@ onMounted(() => {
             <button type="button" class="icon-button" title="取消编辑" aria-label="取消编辑" @click="cancelMetadataEdit"><X :size="16" /></button>
           </header>
           <div class="tech-english-metadata-editor__grid">
-            <label>场景标签
+            <label>生活场景标签
               <select v-model="selectedScenarioTagCodes" multiple size="8">
                 <option v-for="tag in scenarioTagOptions" :key="tag.code" :value="tag.code">{{ tag.label }}</option>
               </select>

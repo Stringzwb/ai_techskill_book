@@ -1053,8 +1053,8 @@ onBeforeUnmount(() => {
               </label>
             </template>
             <div v-if="!isLexicalType(form.corpusType)" class="tech-english-composer__compact">
-              <label>场景
-                <input v-model.trim="form.scenario" maxlength="80" placeholder="backend / ai / database" />
+              <label>例句语境
+                <input v-model.trim="form.scenario" maxlength="80" placeholder="例如 工作中的技术沟通" />
               </label>
               <label>难度
                 <select v-model="form.difficulty">

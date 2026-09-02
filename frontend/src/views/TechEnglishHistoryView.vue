@@ -339,7 +339,7 @@ watch(
             <div>
               <span>SESSION DETAIL</span>
               <h2>{{ detail.sourceName || '识图会话' }}</h2>
-              <p>{{ detail.scenario || '通用场景' }}</p>
+              <p>{{ detail.scenario || '通用例句语境' }}</p>
             </div>
             <div class="tech-english-history-detail__actions">
               <button class="secondary-button" type="button" @click="exportHistory('markdown')"><Download :size="16" />导出 Markdown</button>
