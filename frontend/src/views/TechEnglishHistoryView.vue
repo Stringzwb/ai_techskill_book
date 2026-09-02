@@ -48,6 +48,11 @@ function corpusTypeLabel(value: string): string {
   return '词汇'
 }
 
+/** 将句式槽位收敛为阅读时更轻的省略号。 */
+function readablePattern(value: string | null | undefined): string {
+  return value ? value.replace(/\[[^\]]*\]/g, '...').replace(/(?:\.\.\.){2,}/g, '...') : ''
+}
+
 /** 根据搜索词刷新历史入库标签候选。 */
 function refreshTagOptions(): void {
   const query = tagSearch.value.trim().toLowerCase()
@@ -319,7 +324,7 @@ watch(
             <strong>{{ item.sourceName || '未命名来源' }}</strong>
             <span>{{ statusLabel(item.status) }}</span>
           </div>
-          <p>{{ item.scenario || '通用场景' }}</p>
+          <p>{{ item.scenario || '通用例句语境' }}</p>
           <small>{{ item.chunkCount }} 组 · {{ item.completedChunkCount }} 已完成 · {{ item.imageCount }} 张截图 · {{ item.itemCount }} 条语料</small>
           <time>{{ formatTime(item.createdAt) }}</time>
         </button>
@@ -405,21 +410,21 @@ watch(
                   <h3>{{ item.englishText }}</h3>
                   <p v-if="item.translationText">{{ item.translationText }}</p>
                   <section v-if="item.sentencePattern" class="tech-english-history-item__pattern">
-                    <small>句式框架</small><strong>{{ item.sentencePattern }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
+                    <small>所属句式</small><strong>{{ readablePattern(item.sentencePattern) }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
                   </section>
                   <div v-if="item.partOfSpeech || item.britishPhonetic || item.americanPhonetic" class="tech-english-history-item__chips">
                     <span v-if="item.partOfSpeech">{{ item.partOfSpeech }}</span>
                     <span v-if="item.britishPhonetic">英 {{ item.britishPhonetic }}</span>
                     <span v-if="item.americanPhonetic">美 {{ item.americanPhonetic }}</span>
                   </div>
-                  <div v-if="item.keyVocabulary.length" class="tech-english-history-item__list">
-                    <span v-for="word in item.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`">{{ word.word }}</span>
+                  <div v-if="item.keyVocabulary?.length" class="tech-english-history-item__list">
+                    <span v-for="word in item.keyVocabulary ?? []" :key="`${word.word}-${word.partOfSpeech || ''}`">{{ word.word }}</span>
                   </div>
-                  <div v-if="item.scenarioTags.length" class="tech-english-history-item__list">
-                    <span v-for="tag in item.scenarioTags" :key="tag.code">{{ tag.label }}</span>
+                  <div v-if="item.scenarioTags?.length" class="tech-english-history-item__list">
+                    <span v-for="tag in item.scenarioTags ?? []" :key="tag.code">{{ tag.label }}</span>
                   </div>
-                      <div v-if="item.examples.length" class="tech-english-history-item__examples">
-                    <div v-for="(example, index) in item.examples" :key="index">
+                      <div v-if="item.examples?.length" class="tech-english-history-item__examples">
+                    <div v-for="(example, index) in item.examples ?? []" :key="index">
                       <p>{{ example.englishText }}</p>
                       <small v-if="example.translationText">{{ example.translationText }}</small>
                     </div>

@@ -249,6 +249,11 @@ function difficultyLabel(value: TechEnglishDifficulty): string {
   return labels[value] ?? value
 }
 
+/** 将句式槽位收敛为列表中的可读省略号。 */
+function readablePattern(value: string | null | undefined): string {
+  return value ? value.replace(/\[[^\]]*\]/g, '...').replace(/(?:\.\.\.){2,}/g, '...') : ''
+}
+
 /** 检查语料是否已选入报告。 */
 function isReportSelected(id: number): boolean {
   return selectedReportIds.value.includes(id)
@@ -895,7 +900,7 @@ onBeforeUnmount(() => {
                     </div>
                     <p v-if="item.translationText">{{ item.translationText }}</p>
                     <section v-if="item.sentencePattern" class="tech-english-ai-review__pattern">
-                      <small>句式框架</small><strong>{{ item.sentencePattern }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
+                      <small>所属句式</small><strong>{{ readablePattern(item.sentencePattern) }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
                     </section>
                     <div v-if="item.keyVocabulary.length" class="tech-english-ai-review__keywords">
                       <span v-for="word in item.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`"><strong>{{ word.word }}</strong>{{ word.partOfSpeech ? ` · ${word.partOfSpeech}` : '' }}{{ word.meaning ? ` · ${word.meaning}` : '' }}</span>
@@ -1158,6 +1163,7 @@ onBeforeUnmount(() => {
             <template v-else-if="item.corpusType === 'SENTENCE'">
               <h3>{{ item.englishText || item.title }}</h3>
               <p v-if="item.translationText" class="tech-english-result-item__translation">{{ item.translationText }}</p>
+              <p v-if="item.sentencePattern" class="tech-english-result-item__pattern-link">句式 · {{ readablePattern(item.sentencePattern) }}</p>
             </template>
             <template v-else>
               <h3>{{ item.title || '未命名文章' }}</h3>

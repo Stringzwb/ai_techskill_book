@@ -45,6 +45,11 @@ function typeLabel(value: TechEnglishCorpusType): string {
   return labels[value] ?? value
 }
 
+/** 将句式槽位收敛为阅读时更轻的省略号。 */
+function readablePattern(value: string | null | undefined): string {
+  return value ? value.replace(/\[[^\]]*\]/g, '...').replace(/(?:\.\.\.){2,}/g, '...') : ''
+}
+
 const flatTags = computed<FlatTagOption[]>(() => {
   const options: FlatTagOption[] = []
   const walk = (nodes: KnowledgeTagNode[], parents: string[] = []) => {
@@ -233,7 +238,7 @@ onMounted(() => {
         </section>
         <section v-if="corpus.sentencePattern" class="tech-english-detail-block tech-english-pattern-card">
           <small><Quote :size="14" /> SENTENCE FRAMEWORK</small>
-          <h2>{{ corpus.sentencePattern }}</h2>
+          <h2>{{ readablePattern(corpus.sentencePattern) }}</h2>
           <p v-if="corpus.sentencePatternExplanation">{{ corpus.sentencePatternExplanation }}</p>
         </section>
         <section v-if="corpus.keyVocabulary.length" class="tech-english-detail-block">

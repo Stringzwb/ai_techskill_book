@@ -293,6 +293,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-result-item__phonetic { margin: 5px 0 0; color: var(--subtle); font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; }
 .tech-english-result-item__translation { max-width: 760px; margin: 7px 0 0; color: var(--muted); font-size: 13px; line-height: 1.65; }
 .tech-english-result-item--pattern .tech-english-result-item__translation { color: var(--accent); }
+.tech-english-result-item__pattern-link { margin: 9px 0 0; color: var(--accent); font-size: 12px; }
 .tech-english-result-item footer { margin-top: 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .document-result-tags .scene-tag, .reader-tags .scene-tag { color: var(--accent); background: var(--accent-soft); }
 .tech-english-result-item footer a { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: 12px; font-style: normal; font-weight: 750; white-space: nowrap; }
@@ -453,6 +454,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-ai-review details > div { margin-top: 7px; padding: 7px 8px; border-radius: 5px; background: var(--surface-soft); }
 .tech-english-ai-review details p { margin: 0; color: var(--text); font-size: 9px; line-height: 1.55; }
 .tech-english-ai-review details small { display: block; margin-top: 3px; color: var(--subtle); font-size: 8px; line-height: 1.5; }
+
+/* AI 工作台用更强的层次和留白承载识别流程，减少表单盒子的压迫感。 */
+.tech-english-ai-studio { border: 0; border-radius: 18px; box-shadow: 0 20px 54px rgba(23, 52, 43, .1); }
+.tech-english-ai-studio__header { min-height: 148px; padding: 30px 32px; background: #123f38; box-shadow: inset -92px 0 0 var(--accent); }
+.tech-english-ai-studio__header h2 { font-size: 30px; letter-spacing: -0.03em; }
+.tech-english-ai-layout { background: var(--surface); }
+.tech-english-ai-modes { padding: 25px 21px; background: color-mix(in srgb, var(--surface-soft) 78%, var(--primary-soft)); }
+.tech-english-ai-panel { padding: 28px 30px 32px; }
+.tech-english-ai-review { border: 0; border-radius: 14px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 17%, transparent); }
+.tech-english-ai-review__list > article { border: 0; border-radius: 11px; box-shadow: 0 5px 16px rgba(23, 52, 43, .07); }
 .tech-english-ai-confirm { padding: 15px; border-top: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border)); background: var(--surface); }
 .tech-english-ai-confirm__heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .tech-english-ai-confirm__heading span { color: var(--text); font-size: 11px; font-weight: 800; }
