@@ -11,5 +11,13 @@
 2. 前端执行 `npm run build`：通过。
 3. 部署按 `docs/部署说明.md` 的显式生产主机流程执行，并完成服务健康、核心接口、Redis、证书续期定时器和 HTTPS 检查。
 
-部署时间、线上提交和备份目录以部署脚本最终输出为准。
+部署时间：2026-09-02 19:45（Asia/Shanghai）
+线上仓库提交：00effbb
+备份目录：`/opt/ai-techskill-book/backups/20260902_194454`
+
+线上检查：
+- `/actuator/health` 返回 `{"status":"UP","groups":["liveness","readiness"]}`。
+- `/api/ping` 返回正常消息；HTTPS 首页返回 200。
+- `ai-techskill-book.service`、`nginx.service`、`redis.service`、`certbot-renew-ai-techskill-book.timer` 均为 active。
+
 本次部署未记录服务器账号、密码、Token、API Key 或环境变量真实值。
