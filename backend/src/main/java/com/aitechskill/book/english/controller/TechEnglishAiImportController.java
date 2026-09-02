@@ -17,6 +17,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -97,6 +98,13 @@ public class TechEnglishAiImportController {
     public TechEnglishRecognitionHistoryDetailResponse historyDetail(
             @PathVariable String sessionUuid) {
         return recordService.detail(UserContextHolder.requireUserId(), sessionUuid);
+    }
+
+    /** 删除当前用户的一次识图会话及其未入库来源图片。 */
+    @DeleteMapping("/history/{sessionUuid}")
+    public ResponseEntity<Void> deleteHistory(@PathVariable String sessionUuid) {
+        importService.deleteHistorySession(sessionUuid, UserContextHolder.requireUserId());
+        return ResponseEntity.noContent().build();
     }
 
     /** 将一次识图结果导出为 Markdown 或 HTML 文件。 */

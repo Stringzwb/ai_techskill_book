@@ -140,6 +140,11 @@ export function fetchTechEnglishRecognitionHistoryDetail(sessionUuid: string): P
   return apiRequest<TechEnglishRecognitionHistoryDetail>(`/api/tech-english/imports/history/${sessionUuid}`)
 }
 
+/** 删除当前用户的一次识图会话。 */
+export function deleteTechEnglishRecognitionHistory(sessionUuid: string): Promise<void> {
+  return apiRequest<void>(`/api/tech-english/imports/history/${sessionUuid}`, { method: 'DELETE' })
+}
+
 /** 导出当前用户的一次识图会话。 */
 export function downloadTechEnglishRecognitionHistory(sessionUuid: string, format: 'markdown' | 'html') {
   return `/api/tech-english/imports/history/${sessionUuid}/export?format=${format}`

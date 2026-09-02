@@ -202,6 +202,31 @@ public class TechEnglishAiRecognitionRecordService {
                 responses);
     }
 
+    /** 软删除当前用户的一次识图会话，并返回删除前的任务供清理来源图片。 */
+    public List<TechEnglishAiRecognitionRecordEntity> deleteSession(long userId, String sessionUuid) {
+        List<TechEnglishAiRecognitionRecordEntity> tasks = recordMapper.selectSessionTasks(userId, sessionUuid);
+        if (tasks.isEmpty()) {
+            throw new BusinessException(HttpStatus.NOT_FOUND,
+                    "TECH_ENGLISH_RECOGNITION_HISTORY_NOT_FOUND", "识图记录不存在");
+        }
+        if (tasks.stream().anyMatch(task -> "PROCESSING".equals(task.getStatus()))) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "TECH_ENGLISH_RECOGNITION_DELETE_PROCESSING", "识图任务仍在处理中，请完成或等待后再删除");
+        }
+        int updated = recordMapper.update(null, Wrappers.<TechEnglishAiRecognitionRecordEntity>lambdaUpdate()
+                .eq(TechEnglishAiRecognitionRecordEntity::getCreateby, userId)
+                .eq(TechEnglishAiRecognitionRecordEntity::getSessionUuid, sessionUuid)
+                .eq(TechEnglishAiRecognitionRecordEntity::getDeleted, 0)
+                .set(TechEnglishAiRecognitionRecordEntity::getDeleted, 1)
+                .set(TechEnglishAiRecognitionRecordEntity::getUpdateby, userId)
+                .set(TechEnglishAiRecognitionRecordEntity::getUpdatetime, LocalDateTime.now()));
+        if (updated != tasks.size()) {
+            throw new BusinessException(HttpStatus.CONFLICT,
+                    "TECH_ENGLISH_RECOGNITION_DELETE_CONFLICT", "识图任务状态已变化，请刷新后重试");
+        }
+        return List.copyOf(tasks);
+    }
+
     /** 读取当前用户某个识图批次的详情。 */
     public TechEnglishRecognitionHistoryTaskResponse batch(long userId, String batchUuid) {
         TechEnglishAiRecognitionRecordEntity task = recordMapper.selectOne(Wrappers.<TechEnglishAiRecognitionRecordEntity>lambdaQuery()

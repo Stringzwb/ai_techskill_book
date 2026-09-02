@@ -94,6 +94,15 @@ public class TechEnglishAiImportDraftStore {
         }
     }
 
+    /** 删除用户主动移除的识图草稿及确认锁。 */
+    public void discard(String batchUuid) {
+        try {
+            redisTemplate.delete(java.util.List.of(draftKey(batchUuid), lockKey(batchUuid)));
+        } catch (DataAccessException exception) {
+            LOGGER.warn("技术英语 AI 识图任务删除后未能清理 Redis 草稿，批次={}", batchUuid);
+        }
+    }
+
     /** 确认失败后尽力释放锁，允许用户重试。 */
     public void releaseConfirmation(String batchUuid) {
         try {

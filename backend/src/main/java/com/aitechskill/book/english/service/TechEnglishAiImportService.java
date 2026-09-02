@@ -11,6 +11,7 @@ import com.aitechskill.book.english.domain.ai.TechEnglishAiImportDraft;
 import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishSentenceImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishVocabularyImportPayload;
+import com.aitechskill.book.english.domain.entity.TechEnglishAiRecognitionRecordEntity;
 import com.aitechskill.book.english.domain.request.TechEnglishAiItemTagAssignment;
 import com.aitechskill.book.english.domain.response.TechEnglishAiImportResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishAiRecognitionItemResponse;
@@ -241,6 +242,18 @@ public class TechEnglishAiImportService {
                     normalizedBatchUuid, (System.nanoTime() - startedAt) / 1_000_000,
                     exception.getClass().getSimpleName());
             throw exception;
+        }
+    }
+
+    /** 删除当前用户的一次识图会话；已入库语料使用的来源图片会保留。 */
+    public void deleteHistorySession(String sessionUuid, long userId) {
+        String normalizedSessionUuid = normalizeSessionUuid(sessionUuid);
+        List<TechEnglishAiRecognitionRecordEntity> tasks = recordService.deleteSession(userId, normalizedSessionUuid);
+        for (var task : tasks) {
+            draftStore.discard(task.getBatchUuid());
+            if (!"IMPORTED".equals(task.getStatus())) {
+                cleanup(recordService.sourceImages(task));
+            }
         }
     }
 

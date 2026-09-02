@@ -541,6 +541,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-history-card__top span { color: var(--primary); font-size: 10px; font-weight: 800; }
 .tech-english-history-card p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
 .tech-english-history-card small, .tech-english-history-card time { color: var(--subtle); font-size: 10px; line-height: 1.45; }
+.tech-english-history-entry { position: relative; min-width: 0; }
+.tech-english-history-entry .tech-english-history-card { width: 100%; padding-right: 38px; }
+.tech-english-history-delete { position: absolute; top: 10px; right: 9px; width: 27px; height: 27px; display: grid; place-items: center; color: var(--subtle); border: 0; border-radius: 6px; background: transparent; }
+.tech-english-history-delete:hover:not(:disabled) { color: var(--danger); background: var(--danger-soft); }
+.tech-english-history-delete:disabled { opacity: .45; }
+.tech-english-history-delete-detail { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 24%, var(--border)); }
+.tech-english-history-delete-detail:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); background: var(--danger-soft); }
 .tech-english-history-empty { padding: 18px 12px; display: grid; gap: 6px; color: var(--muted); border: 1px dashed var(--border); border-radius: 8px; background: var(--surface-soft); }
 .tech-english-history-empty strong { color: var(--text); font-size: 13px; }
 .tech-english-history-detail { padding: 16px; display: grid; gap: 14px; }

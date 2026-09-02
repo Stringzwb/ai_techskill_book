@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowLeft, Check, Download, FileSearch, RefreshCcw, Search, Sparkles, X } from '@lucide/vue'
+import { ArrowLeft, Check, Download, FileSearch, RefreshCcw, Search, Sparkles, Trash2, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
-import { confirmTechEnglishScreenshotImport, downloadTechEnglishRecognitionBatchHistory, downloadTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistoryDetail, retryTechEnglishScreenshotImport } from '../services/techEnglish'
+import { confirmTechEnglishScreenshotImport, deleteTechEnglishRecognitionHistory, downloadTechEnglishRecognitionBatchHistory, downloadTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistory, fetchTechEnglishRecognitionHistoryDetail, retryTechEnglishScreenshotImport } from '../services/techEnglish'
 import type { KnowledgeTagNode, TechEnglishRecognitionHistoryDetail, TechEnglishRecognitionHistorySummary, TechEnglishRecognitionHistoryTask } from '../types'
 
 const route = useRoute()
@@ -20,6 +20,7 @@ const selectedTagId = ref<number | null>(null)
 const tagPickerOpen = ref(false)
 const batchImporting = ref('')
 const batchRetrying = ref('')
+const deletingSession = ref('')
 const itemTagAssignments = reactive<Record<string, number[]>>({})
 let tagPickerCloseTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -247,6 +248,27 @@ async function openDetail(sessionUuid: string): Promise<void> {
   }
 }
 
+/** 删除当前用户的一次识图会话。 */
+async function deleteSession(sessionUuid: string, event?: Event): Promise<void> {
+  event?.stopPropagation()
+  if (!sessionUuid || deletingSession.value) return
+  if (!window.confirm('删除这次识图任务？未入库的识别结果和来源截图会一起删除。')) return
+  deletingSession.value = sessionUuid
+  errorMessage.value = ''
+  try {
+    await deleteTechEnglishRecognitionHistory(sessionUuid)
+    if (selectedSessionUuid.value === sessionUuid) {
+      selectedSessionUuid.value = ''
+      detail.value = null
+    }
+    await loadHistory()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '识图任务删除失败，请稍后重试'
+  } finally {
+    deletingSession.value = ''
+  }
+}
+
 /** 下载当前会话的 Markdown 或 HTML 导出文件。 */
 function exportHistory(format: 'markdown' | 'html'): void {
   if (!selectedSessionUuid.value) return
@@ -312,22 +334,25 @@ watch(
           <span><Sparkles :size="14" /> 识图会话</span>
           <small>{{ history.total }} 条</small>
         </header>
-        <button
-          v-for="item in history.items"
-          :key="item.sessionUuid"
-          type="button"
-          class="tech-english-history-card"
-          :class="{ active: selectedSessionUuid === item.sessionUuid }"
-          @click="openDetail(item.sessionUuid)"
-        >
-          <div class="tech-english-history-card__top">
-            <strong>{{ item.sourceName || '未命名来源' }}</strong>
-            <span>{{ statusLabel(item.status) }}</span>
-          </div>
-          <p>{{ item.scenario || '通用例句语境' }}</p>
-          <small>{{ item.chunkCount }} 组 · {{ item.completedChunkCount }} 已完成 · {{ item.imageCount }} 张截图 · {{ item.itemCount }} 条语料</small>
-          <time>{{ formatTime(item.createdAt) }}</time>
-        </button>
+        <div v-for="item in history.items" :key="item.sessionUuid" class="tech-english-history-entry">
+          <button
+            type="button"
+            class="tech-english-history-card"
+            :class="{ active: selectedSessionUuid === item.sessionUuid }"
+            @click="openDetail(item.sessionUuid)"
+          >
+            <div class="tech-english-history-card__top">
+              <strong>{{ item.sourceName || '未命名来源' }}</strong>
+              <span>{{ statusLabel(item.status) }}</span>
+            </div>
+            <p>{{ item.scenario || '通用例句语境' }}</p>
+            <small>{{ item.chunkCount }} 组 · {{ item.completedChunkCount }} 已完成 · {{ item.imageCount }} 张截图 · {{ item.itemCount }} 条语料</small>
+            <time>{{ formatTime(item.createdAt) }}</time>
+          </button>
+          <button class="tech-english-history-delete" type="button" :disabled="deletingSession === item.sessionUuid || item.status === 'PROCESSING'" :title="item.status === 'PROCESSING' ? '任务处理中，暂不能删除' : '删除识图任务'" :aria-label="item.status === 'PROCESSING' ? '任务处理中，暂不能删除' : '删除识图任务'" @click="deleteSession(item.sessionUuid, $event)">
+            <Trash2 :size="15" />
+          </button>
+        </div>
         <div v-if="!history.items.length" class="tech-english-history-empty">
           <strong>暂无识图记录</strong>
           <span>完成一次截图识别后，这里就会出现会话摘要。</span>
@@ -349,6 +374,7 @@ watch(
             <div class="tech-english-history-detail__actions">
               <button class="secondary-button" type="button" @click="exportHistory('markdown')"><Download :size="16" />导出 Markdown</button>
               <button class="secondary-button" type="button" @click="exportHistory('html')"><Download :size="16" />导出 HTML</button>
+              <button class="secondary-button tech-english-history-delete-detail" type="button" :disabled="deletingSession === detail.sessionUuid || detail.status === 'PROCESSING'" :title="detail.status === 'PROCESSING' ? '任务处理中，暂不能删除' : '删除识图任务'" @click="deleteSession(detail.sessionUuid)"><Trash2 :size="16" />删除任务</button>
             </div>
           </header>
 
