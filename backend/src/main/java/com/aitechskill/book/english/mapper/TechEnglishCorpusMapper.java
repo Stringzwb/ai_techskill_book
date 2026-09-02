@@ -19,10 +19,26 @@ public interface TechEnglishCorpusMapper extends BaseMapper<TechEnglishCorpusEnt
             @Param("offset") long offset,
             @Param("size") int size);
 
+    /** 查询多个底层类型组合的已发布语料。 */
+    List<TechEnglishCorpusEntity> selectPublishedPageByTypes(
+            @Param("keyword") String keyword,
+            @Param("corpusType") String corpusType,
+            @Param("corpusTypes") List<String> corpusTypes,
+            @Param("tagIds") List<Long> tagIds,
+            @Param("offset") long offset,
+            @Param("size") int size);
+
     /** 统计符合关键词、类型和多个标签条件的已发布语料。 */
     long countPublished(
             @Param("keyword") String keyword,
             @Param("corpusType") String corpusType,
+            @Param("tagIds") List<Long> tagIds);
+
+    /** 统计多个底层类型组合的已发布语料。 */
+    long countPublishedByTypes(
+            @Param("keyword") String keyword,
+            @Param("corpusType") String corpusType,
+            @Param("corpusTypes") List<String> corpusTypes,
             @Param("tagIds") List<Long> tagIds);
 
     /** 查询一条已发布语料。 */

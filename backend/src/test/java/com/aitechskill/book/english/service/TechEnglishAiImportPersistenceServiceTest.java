@@ -60,6 +60,7 @@ class TechEnglishAiImportPersistenceServiceTest {
         });
         given(corpusService.getPublishedCorpus(101L)).willReturn(detail(101L, "VOCABULARY"));
         given(corpusService.getPublishedCorpus(102L)).willReturn(detail(102L, "SENTENCE"));
+        given(corpusMapper.selectOne(any())).willReturn(null);
         given(sentencePatternMapper.selectActiveByNormalizedPattern("... can still be ...")).willReturn(null);
         given(sentencePatternMapper.insert(any(TechEnglishSentencePatternEntity.class))).willAnswer(invocation -> {
             TechEnglishSentencePatternEntity pattern = invocation.getArgument(0);
@@ -89,9 +90,9 @@ class TechEnglishAiImportPersistenceServiceTest {
                 7L);
 
         ArgumentCaptor<TechEnglishCorpusEntity> captor = ArgumentCaptor.forClass(TechEnglishCorpusEntity.class);
-        verify(corpusMapper, times(2)).insert(captor.capture());
+        verify(corpusMapper, times(3)).insert(captor.capture());
         assertThat(captor.getAllValues()).extracting(TechEnglishCorpusEntity::getCorpusType)
-                .containsExactly("VOCABULARY", "SENTENCE");
+                .containsExactly("VOCABULARY", "SENTENCE", "PATTERN");
         assertThat(created).extracting(TechEnglishCorpusDetailResponse::corpusType)
                 .containsExactly("VOCABULARY", "SENTENCE");
         verify(sentencePatternMapper).insertCorpusLink(301L, 102L, 7L);

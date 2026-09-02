@@ -17,6 +17,7 @@ import type {
 export function fetchTechEnglishCorpus(params: {
   keyword?: string
   corpusType?: TechEnglishCorpusType | ''
+  corpusTypes?: TechEnglishCorpusType[]
   tagId?: number
   tagIds?: number[]
   page?: number
@@ -25,6 +26,7 @@ export function fetchTechEnglishCorpus(params: {
   const query = new URLSearchParams()
   if (params.keyword) query.set('keyword', params.keyword)
   if (params.corpusType) query.set('corpusType', params.corpusType)
+  params.corpusTypes?.filter(Boolean).forEach((type) => query.append('corpusTypes', type))
   if (params.tagId) query.set('tagId', String(params.tagId))
   params.tagIds?.filter((tagId) => tagId > 0).forEach((tagId) => query.append('tagIds', String(tagId)))
   query.set('page', String(params.page ?? 1))

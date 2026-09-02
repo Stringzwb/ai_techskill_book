@@ -556,7 +556,7 @@ public class TechEnglishAiImportService {
                 你是技术英语语料整理助手。以下 %d 张截图均来自「%s」，图片顺序对应 sourceImageIndex 1 到 %d。
                 请先自行判断截图中的每条学习内容属于「词汇 / 短语」还是「句式」，不要让用户选择类型。同一张图可以同时识别出两类内容。
                 词汇或短语放入 vocabulary.items：仅收录被当作学习内容的词或短语，补全词性、中文释义、英式 IPA 和美式 IPA；单个词的 corpusType 填 VOCABULARY，短语或固定搭配的 corpusType 填 PHRASE。
-                句式放入 sentences.items：收录有学习价值的完整英文句子，给出翻译、重点词汇、可复用句式框架和句式解析。
+                完整句子放入 sentences.items：只收录有学习价值的完整英文句子，给出翻译、重点词汇、可复用句式框架和句式解析；系统会把 classicPattern 另存为独立 PATTERN 语料，不能把完整句子本身当成句式。
                 每个句子都必须填写 classicPattern 和 patternExplanation：classicPattern 使用英文的可复用语法骨架，保留固定语法成分，将可替换内容写成方括号槽位，不能照抄完整原句。例如 “Small systems can still be resilient.” 应写成 “[Subject] can still be [adjective].”；patternExplanation 用中文说明这个框架的语法作用和适用场景。
                 不要收录普通界面文字，也不要把同一条内容重复放入两类。某类没有结果时，它的 items 返回空数组。
                 请为每条语料从以下固定场景标签中选择最贴近的 0 到 4 个 code 写入 scenarioTags；无法判断时返回空数组，不要编造新标签：

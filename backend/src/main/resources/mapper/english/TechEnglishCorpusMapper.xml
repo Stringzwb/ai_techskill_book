@@ -10,7 +10,13 @@
                  OR corpus.explanation LIKE CONCAT('%', #{keyword}, '%')
                  OR corpus.tags LIKE CONCAT('%', #{keyword}, '%'))
         </if>
-        <if test="corpusType != null and corpusType != ''">
+        <if test="corpusTypes != null and corpusTypes.size() > 0">
+            AND corpus.corpus_type IN
+            <foreach collection="corpusTypes" item="type" open="(" separator="," close=")">
+                #{type}
+            </foreach>
+        </if>
+        <if test="(corpusTypes == null or corpusTypes.size() == 0) and corpusType != null and corpusType != ''">
             AND corpus.corpus_type = #{corpusType}
         </if>
         <if test="tagIds != null and tagIds.size() > 0">
@@ -40,7 +46,41 @@
         LIMIT #{size} OFFSET #{offset}
     </select>
 
+    <select id="selectPublishedPageByTypes" resultType="com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity">
+        SELECT corpus.*
+        FROM tech_english_corpus AS corpus
+        WHERE <include refid="publishedFilter"/>
+        ORDER BY corpus.published_at DESC, corpus.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
     <select id="countPublished" resultType="long">
+        SELECT COUNT(*)
+        FROM tech_english_corpus AS corpus
+        WHERE corpus.deleted = 0
+          AND corpus.status = 'PUBLISHED'
+        <if test="keyword != null and keyword != ''">
+            AND (corpus.title LIKE CONCAT('%', #{keyword}, '%')
+                 OR corpus.english_text LIKE CONCAT('%', #{keyword}, '%')
+                 OR corpus.explanation LIKE CONCAT('%', #{keyword}, '%')
+                 OR corpus.tags LIKE CONCAT('%', #{keyword}, '%'))
+        </if>
+        <if test="corpusType != null and corpusType != ''">
+            AND corpus.corpus_type = #{corpusType}
+        </if>
+        <if test="tagIds != null and tagIds.size() > 0">
+            AND EXISTS (
+                SELECT 1 FROM tech_english_corpus_tag AS filter_link
+                INNER JOIN knowledge_tag AS bound_tag ON bound_tag.id = filter_link.tag_id AND bound_tag.deleted = 0
+                INNER JOIN knowledge_tag AS scope_tag ON scope_tag.deleted = 0
+                WHERE filter_link.corpus_id = corpus.id AND filter_link.deleted = 0
+                  AND scope_tag.id IN <foreach collection="tagIds" item="filterTagId" open="(" separator="," close=")">#{filterTagId}</foreach>
+                  AND bound_tag.tag_path LIKE CONCAT(scope_tag.tag_path, '%')
+            )
+        </if>
+    </select>
+
+    <select id="countPublishedByTypes" resultType="long">
         SELECT COUNT(*)
         FROM tech_english_corpus AS corpus
         WHERE <include refid="publishedFilter"/>

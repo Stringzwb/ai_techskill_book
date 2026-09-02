@@ -232,6 +232,7 @@ public class TechEnglishCorpusReportService {
     private String typeClass(String corpusType) {
         return switch (corpusType) {
             case "PHRASE" -> "phrase";
+            case "PATTERN" -> "pattern";
             case "SENTENCE" -> "sentence";
             case "ARTICLE" -> "article";
             default -> "vocabulary";
@@ -241,7 +242,8 @@ public class TechEnglishCorpusReportService {
     private String typeLabel(String corpusType) {
         return switch (corpusType) {
             case "PHRASE" -> "PHRASE · 短语";
-            case "SENTENCE" -> "PATTERN · 句式";
+            case "PATTERN" -> "PATTERN · 句式";
+            case "SENTENCE" -> "SENTENCE · 句子";
             case "ARTICLE" -> "ARTICLE · 文章";
             default -> "VOCABULARY · 词汇";
         };

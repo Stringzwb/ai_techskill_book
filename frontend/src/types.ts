@@ -101,7 +101,7 @@ export interface DocumentDetail extends DocumentSummary {
 }
 
 /** 技术英语语料类型。 */
-export type TechEnglishCorpusType = 'VOCABULARY' | 'PHRASE' | 'SENTENCE' | 'ARTICLE'
+export type TechEnglishCorpusType = 'VOCABULARY' | 'PHRASE' | 'PATTERN' | 'SENTENCE' | 'ARTICLE'
 
 /** 技术英语语料难度。 */
 export type TechEnglishDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'

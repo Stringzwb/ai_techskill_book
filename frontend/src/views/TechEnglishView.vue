@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowRight, BookOpenText, Check, Download, FileDown, FileSearch, FileText, Languages, LayoutGrid, List, LogIn, Plus, RotateCcw, Rows3, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
+import { ArrowRight, BookOpenText, Check, Download, FileDown, FileSearch, FileText, Languages, LogIn, Plus, Quote, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import KnowledgeTagMultiSelector from '../components/KnowledgeTagMultiSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
@@ -30,16 +30,15 @@ const AI_MAX_IMAGES = 20
 const AI_CHUNK_SIZE = 5
 const CORPUS_PAGE_SIZE = 20
 
-type CorpusViewMode = 'compact' | 'grid' | 'stream'
+type CorpusFilterType = TechEnglishCorpusType | 'PHRASE_PATTERN' | ''
 
 const keyword = ref('')
 const route = useRoute()
 const isAiImportPage = computed(() => route.name === 'tech-english-import')
 const submittedKeyword = ref('')
-const corpusType = ref<TechEnglishCorpusType | ''>('')
+const corpusType = ref<CorpusFilterType>('')
 const filterTagIds = ref<number[]>([])
 const result = ref<TechEnglishCorpusPage>({ total: 0, page: 1, size: CORPUS_PAGE_SIZE, totalPages: 0, items: [] })
-const corpusViewMode = ref<CorpusViewMode>('compact')
 const selectedReportIds = ref<number[]>([])
 const reportSelectMode = ref(false)
 const loading = ref(true)
@@ -92,11 +91,19 @@ const form = reactive<TechEnglishCorpusCreatePayload>({
   syncExamplesToSentences: true,
 })
 
-const corpusTypes: Array<{ value: TechEnglishCorpusType; label: string; icon: typeof Type }> = [
-  { value: 'VOCABULARY', label: '词汇', icon: Type },
+const corpusCreateTypes: Array<{ value: TechEnglishCorpusType; label: string; icon: typeof Type }> = [
+  { value: 'VOCABULARY', label: '单词', icon: Type },
   { value: 'PHRASE', label: '短语', icon: BookOpenText },
-  { value: 'SENTENCE', label: '句式', icon: Languages },
-  { value: 'ARTICLE', label: '英语文章', icon: FileText },
+  { value: 'PATTERN', label: '句式', icon: Languages },
+  { value: 'SENTENCE', label: '句子', icon: Quote },
+  { value: 'ARTICLE', label: '文章', icon: FileText },
+]
+
+const corpusFilterTypes: Array<{ value: CorpusFilterType; label: string; icon: typeof Type; types: TechEnglishCorpusType[] }> = [
+  { value: 'VOCABULARY', label: '单词', icon: Type, types: ['VOCABULARY'] },
+  { value: 'PHRASE_PATTERN', label: '短语与句式', icon: BookOpenText, types: ['PHRASE', 'PATTERN'] },
+  { value: 'SENTENCE', label: '句子', icon: Quote, types: ['SENTENCE'] },
+  { value: 'ARTICLE', label: '文章', icon: FileText, types: ['ARTICLE'] },
 ]
 
 const selectionLabel = computed(() => filterTagIds.value.length ? `已选择 ${filterTagIds.value.length} 个标签` : '')
@@ -223,7 +230,7 @@ function hasBatchItems(batch: TechEnglishAiRecognitionResponse): boolean {
 
 /** 转换语料类型展示文案。 */
 function typeLabel(value: TechEnglishCorpusType): string {
-  return corpusTypes.find((item) => item.value === value)?.label ?? value
+  return corpusCreateTypes.find((item) => item.value === value)?.label ?? value
 }
 
 /** 转换识图结果类型展示文案。 */
@@ -240,11 +247,6 @@ function isLexicalType(value: TechEnglishCorpusType): boolean {
 function difficultyLabel(value: TechEnglishDifficulty): string {
   const labels: Record<TechEnglishDifficulty, string> = { BEGINNER: '入门', INTERMEDIATE: '中级', ADVANCED: '高级' }
   return labels[value] ?? value
-}
-
-/** 生成列表卡片摘要。 */
-function summaryText(item: TechEnglishCorpusPage['items'][number]): string {
-  return item.englishText || item.explanation || item.translationText || item.imageAlt || '打开查看完整语料。'
 }
 
 /** 检查语料是否已选入报告。 */
@@ -288,9 +290,11 @@ async function loadCorpus(page = 1): Promise<void> {
   loading.value = true
   errorMessage.value = ''
   try {
+    const filter = corpusFilterTypes.find((item) => item.value === corpusType.value)
     result.value = await fetchTechEnglishCorpus({
       keyword: submittedKeyword.value,
-      corpusType: corpusType.value,
+      corpusType: filter?.types.length === 1 ? filter.types[0] : undefined,
+      corpusTypes: filter?.types.length && filter.types.length > 1 ? filter.types : undefined,
       tagIds: filterTagIds.value,
       page,
       size: CORPUS_PAGE_SIZE,
@@ -329,7 +333,7 @@ function updateTagFilter(tagIds: number[]): void {
 }
 
 /** 切换语料类型筛选。 */
-function toggleType(nextType: TechEnglishCorpusType): void {
+function toggleType(nextType: CorpusFilterType): void {
   corpusType.value = corpusType.value === nextType ? '' : nextType
   void loadCorpus(1)
 }
@@ -342,12 +346,6 @@ function resetFilters(): void {
   filterTagIds.value = []
   selectorKey.value += 1
   void loadCorpus(1)
-}
-
-/** 切换语料列表展示方式并记住本机偏好。 */
-function setCorpusViewMode(mode: CorpusViewMode): void {
-  corpusViewMode.value = mode
-  window.localStorage.setItem('tech-english-corpus-view-mode', mode)
 }
 
 /** 重置主站轻收录表单。 */
@@ -681,7 +679,7 @@ function filledVocabularyExamples(): TechEnglishVocabularyExampleInput[] {
 async function submitCorpus(): Promise<void> {
   submitError.value = ''
   submitMessage.value = ''
-  if ((isLexicalType(form.corpusType) || form.corpusType === 'SENTENCE') && !form.englishText?.trim()) {
+  if ((isLexicalType(form.corpusType) || form.corpusType === 'PATTERN' || form.corpusType === 'SENTENCE') && !form.englishText?.trim()) {
     submitError.value = '请填写英文内容'
     return
   }
@@ -710,8 +708,6 @@ async function submitCorpus(): Promise<void> {
 }
 
 onMounted(() => {
-  const savedViewMode = window.localStorage.getItem('tech-english-corpus-view-mode')
-  if (savedViewMode === 'compact' || savedViewMode === 'grid' || savedViewMode === 'stream') corpusViewMode.value = savedViewMode
   if (!isAiImportPage.value) void loadCorpus()
   void loadCreateTags()
 })
@@ -755,7 +751,7 @@ onBeforeUnmount(() => {
         <div>
           <span><Sparkles :size="14" /> AI SCREENSHOT IMPORT</span>
           <h2 id="tech-english-ai-title">上传与自动分类</h2>
-          <p>最多 20 张图片，每组 5 张，自动拆成最多 4 个并发识别任务。标签可逐条编辑，也可按分组批量处理。</p>
+                <p>最多 20 张图片，每组 5 张，自动拆成最多 4 个并发识别任务。AI 会区分单词、短语、句式和句子，再由你确认入库。</p>
         </div>
         <div class="tech-english-ai-source">
           <small>历史记录</small>
@@ -774,7 +770,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="tech-english-ai-config-summary">
             <p><Type :size="15" /><span><strong>词汇/短语配置</strong>词性、释义、英美音标与例句</span></p>
-            <p><Languages :size="15" /><span><strong>句式配置</strong>翻译、重点词汇、可复用句式框架与例句</span></p>
+              <p><Languages :size="15" /><span><strong>句式提取</strong>只保存可复用的语法骨架，不把完整句子当作句式</span></p>
           </div>
           <div class="tech-english-ai-flow">
             <span>1</span><p>上传图片并自动切成 5 张一组</p>
@@ -932,7 +928,7 @@ onBeforeUnmount(() => {
 
             <section class="tech-english-ai-confirm">
               <div class="tech-english-ai-confirm__heading"><span>04 · 分批确认入库</span><small>每个批次都可单独入库，已入库批次不会重复创建</small></div>
-              <p>标签是可选的；确认前可逐条编辑，也可使用分组批量操作。确认后会保留词汇、短语与句式结果。</p>
+              <p>标签是可选的；确认前可逐条编辑，也可使用分组批量操作。确认后按单词、短语、句式和句子分别入库。</p>
             </section>
           </section>
 
@@ -967,7 +963,7 @@ onBeforeUnmount(() => {
           </header>
           <form @submit.prevent="submitCorpus">
             <div class="share-type-tabs">
-              <button v-for="item in corpusTypes" :key="item.value" type="button" :class="{ active: form.corpusType === item.value }" @click="setCreateType(item.value)">
+              <button v-for="item in corpusCreateTypes" :key="item.value" type="button" :class="{ active: form.corpusType === item.value }" @click="setCreateType(item.value)">
                 <component :is="item.icon" :size="16" />{{ item.label }}
               </button>
             </div>
@@ -1031,9 +1027,17 @@ onBeforeUnmount(() => {
               </section>
             </template>
 
-            <label v-if="form.corpusType === 'SENTENCE'">句式原句
+            <label v-if="form.corpusType === 'SENTENCE'">完整句子
               <textarea v-model="form.englishText" required maxlength="20000" placeholder="粘贴一句技术英文表达"></textarea>
             </label>
+            <template v-if="form.corpusType === 'PATTERN'">
+              <label>可复用句式框架
+                <textarea v-model="form.englishText" required maxlength="500" placeholder="例如 [Subject] should be [adjective]."></textarea>
+              </label>
+              <label>句式说明
+                <textarea v-model="form.explanation" maxlength="1000" placeholder="说明这个骨架的语法作用和适用范围"></textarea>
+              </label>
+            </template>
             <template v-if="form.corpusType === 'ARTICLE'">
               <label>文章标题
                 <input v-model.trim="form.title" maxlength="160" placeholder="可选，不填则自动使用来源或正文开头" />
@@ -1086,7 +1090,7 @@ onBeforeUnmount(() => {
         <button class="primary-button" type="submit">搜索</button>
       </form>
       <div class="tech-english-type-filter" aria-label="语料类型">
-        <button v-for="item in corpusTypes" :key="item.value" type="button" :class="{ active: corpusType === item.value }" @click="toggleType(item.value)">
+        <button v-for="item in corpusFilterTypes" :key="item.value" type="button" :class="{ active: corpusType === item.value }" @click="toggleType(item.value)">
           <component :is="item.icon" :size="17" />
           <span>{{ item.label }}</span>
         </button>
@@ -1111,16 +1115,11 @@ onBeforeUnmount(() => {
         <header class="tech-english-results__header">
           <div><span>ENGLISH CORPUS</span><h2>{{ submittedKeyword ? `“${submittedKeyword}”的结果` : '最新语料' }}</h2></div>
           <div class="tech-english-results__tools">
-            <small v-if="!loading">{{ corpusType ? typeLabel(corpusType) : selectionLabel || '全部语料' }}</small>
+            <small v-if="!loading">{{ corpusFilterTypes.find((item) => item.value === corpusType)?.label || selectionLabel || '全部语料' }}</small>
             <button class="tech-english-report-toggle" type="button" :class="{ active: reportSelectMode || selectedReportCount }" title="报告篮" aria-label="报告篮" @click="toggleReportSelectMode">
               <FileDown :size="15" />
               <span v-if="selectedReportCount">{{ selectedReportCount }}</span>
             </button>
-            <div class="tech-english-view-switch" aria-label="语料展示方式">
-              <button type="button" :class="{ active: corpusViewMode === 'compact' }" :aria-pressed="corpusViewMode === 'compact'" @click="setCorpusViewMode('compact')"><List :size="15" />紧凑列表</button>
-              <button type="button" :class="{ active: corpusViewMode === 'grid' }" :aria-pressed="corpusViewMode === 'grid'" @click="setCorpusViewMode('grid')"><LayoutGrid :size="15" />卡片网格</button>
-              <button type="button" :class="{ active: corpusViewMode === 'stream' }" :aria-pressed="corpusViewMode === 'stream'" @click="setCorpusViewMode('stream')"><Rows3 :size="15" />语料速览</button>
-            </div>
           </div>
         </header>
 
@@ -1131,27 +1130,40 @@ onBeforeUnmount(() => {
         <div v-else-if="!result.items.length" class="document-result-state">
           <BookOpenText :size="27" /><strong>没有找到匹配语料</strong><span>可以更换关键词、语料类型或知识标签。</span>
         </div>
-        <div v-else class="tech-english-result-list" :class="`tech-english-result-list--${corpusViewMode}`">
-          <article v-for="item in result.items" :key="item.id" class="tech-english-result-item" :class="[`tech-english-result-item--${corpusViewMode}`, { 'is-selecting': reportSelectMode, 'is-selected': isReportSelected(item.id) }]">
+        <div v-else class="tech-english-result-list">
+          <article v-for="item in result.items" :key="item.id" class="tech-english-result-item" :class="[`tech-english-result-item--${item.corpusType.toLowerCase()}`, { 'is-selecting': reportSelectMode, 'is-selected': isReportSelected(item.id) }]">
             <div class="tech-english-result-item__meta">
               <span>{{ typeLabel(item.corpusType) }}</span>
-              <small>{{ item.scenario || item.scenarioTags[0]?.label || 'general' }} · {{ difficultyLabel(item.difficulty) }}</small>
+              <small v-if="item.corpusType === 'VOCABULARY'">{{ item.partOfSpeech || difficultyLabel(item.difficulty) }}</small>
+              <small v-else-if="item.corpusType === 'PATTERN'">可复用表达</small>
+              <small v-else-if="item.corpusType === 'ARTICLE'">阅读材料</small>
+              <small v-else>{{ difficultyLabel(item.difficulty) }}</small>
             </div>
             <button class="tech-english-report-pick" type="button" :class="{ active: isReportSelected(item.id) }" :disabled="!isReportSelected(item.id) && selectedReportCount >= 100" title="选择到报告篮" :aria-label="isReportSelected(item.id) ? '从报告篮移除' : '选择到报告篮'" @click="toggleReportSelection(item.id, $event)">
               <Check v-if="isReportSelected(item.id)" :size="14" />
             </button>
-            <h3>{{ item.title }}</h3>
-            <p class="tech-english-result-item__english">{{ summaryText(item) }}</p>
-            <p v-if="item.translationText" class="tech-english-result-item__translation">{{ item.translationText }}</p>
-            <section v-if="item.sentencePattern" class="tech-english-result-item__pattern">
-              <small>句式框架</small><strong>{{ item.sentencePattern }}</strong>
-              <p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
-            </section>
+            <template v-if="item.corpusType === 'VOCABULARY'">
+              <h3>{{ item.title || item.englishText }}</h3>
+              <p v-if="item.phonetic || item.americanPhonetic || item.britishPhonetic" class="tech-english-result-item__phonetic">{{ item.phonetic || item.americanPhonetic || item.britishPhonetic }}</p>
+              <p v-if="item.translationText" class="tech-english-result-item__translation">{{ item.translationText }}</p>
+            </template>
+            <template v-else-if="item.corpusType === 'PHRASE'">
+              <h3>{{ item.englishText || item.title }}</h3>
+              <p v-if="item.translationText" class="tech-english-result-item__translation">{{ item.translationText }}</p>
+            </template>
+            <template v-else-if="item.corpusType === 'PATTERN'">
+              <h3>{{ item.englishText || item.title }}</h3>
+              <p v-if="item.explanation" class="tech-english-result-item__translation">{{ item.explanation }}</p>
+            </template>
+            <template v-else-if="item.corpusType === 'SENTENCE'">
+              <h3>{{ item.englishText || item.title }}</h3>
+              <p v-if="item.translationText" class="tech-english-result-item__translation">{{ item.translationText }}</p>
+            </template>
+            <template v-else>
+              <h3>{{ item.title || '未命名文章' }}</h3>
+              <p v-if="item.explanation || item.translationText" class="tech-english-result-item__translation">{{ item.explanation || item.translationText }}</p>
+            </template>
             <footer>
-              <div class="document-result-tags">
-                <span v-for="tag in item.scenarioTags" :key="tag.code" class="scene-tag">{{ tag.label }}</span>
-                <span v-for="tag in item.knowledgeTags" :key="tag.id">{{ tag.name }}</span>
-              </div>
               <RouterLink :to="`/tech-english/${item.id}`">查看<ArrowRight :size="15" /></RouterLink>
             </footer>
           </article>

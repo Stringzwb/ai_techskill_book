@@ -41,6 +41,7 @@ public class TechEnglishAiImportPersistenceService {
     private static final int MAX_ITEMS_PER_IMPORT = 100;
     private static final String VOCABULARY_TYPE = "VOCABULARY";
     private static final String PHRASE_TYPE = "PHRASE";
+    private static final String PATTERN_TYPE = "PATTERN";
     private static final String SENTENCE_TYPE = "SENTENCE";
 
     private final TechEnglishCorpusMapper corpusMapper;
@@ -205,10 +206,45 @@ public class TechEnglishAiImportPersistenceService {
             corpus.setPatternExamplesJson(toJson(patternExamples));
             corpusMapper.insert(corpus);
             if (!tagIds.isEmpty()) corpusMapper.insertTagLinks(corpus.getId(), tagIds);
+            savePatternCorpus(corpus.getSentencePattern(), corpus.getSentencePatternExplanation(), corpus.getScenario(), userId);
             saveSentencePattern(corpus.getId(), corpus.getSentencePattern(), corpus.getSentencePatternExplanation(), userId);
             createdIds.add(corpus.getId());
         }
         return loadCreated(createdIds);
+    }
+
+    /** 保存可复用句式为独立语料，句子本身仍保留原句和句式关联。 */
+    private void savePatternCorpus(String patternText, String patternExplanation, String scenario, long userId) {
+        String normalized = normalizePattern(patternText);
+        if (normalized == null) {
+            return;
+        }
+        String displayText = patternText.trim().replaceAll("\\s+", " ");
+        TechEnglishCorpusEntity existing = corpusMapper.selectOne(
+                Wrappers.<TechEnglishCorpusEntity>lambdaQuery()
+                        .eq(TechEnglishCorpusEntity::getCorpusType, PATTERN_TYPE)
+                        .eq(TechEnglishCorpusEntity::getEnglishText, displayText)
+                        .eq(TechEnglishCorpusEntity::getDeleted, 0)
+                        .last("LIMIT 1"));
+        if (existing != null) {
+            return;
+        }
+        TechEnglishCorpusEntity pattern = new TechEnglishCorpusEntity();
+        pattern.setCorpusUuid(UUID.randomUUID().toString());
+        pattern.setCorpusType(PATTERN_TYPE);
+        pattern.setTitle(abbreviate(displayText, 160));
+        pattern.setEnglishText(displayText);
+        pattern.setExplanation(patternExplanation);
+        pattern.setScenario(scenario);
+        pattern.setDifficulty("INTERMEDIATE");
+        pattern.setAiReviewStatus("REVIEWED");
+        pattern.setIndexStatus("NOT_INDEXED");
+        pattern.setContentVersion(1L);
+        pattern.setStatus("PUBLISHED");
+        pattern.setPublishedAt(LocalDateTime.now());
+        pattern.setCreateby(userId);
+        pattern.setUpdateby(userId);
+        corpusMapper.insert(pattern);
     }
 
     /** 创建 AI 导入语料的通用字段。 */

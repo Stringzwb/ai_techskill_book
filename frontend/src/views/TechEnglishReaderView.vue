@@ -38,7 +38,8 @@ function typeLabel(value: TechEnglishCorpusType): string {
   const labels: Record<TechEnglishCorpusType, string> = {
     VOCABULARY: '词汇',
     PHRASE: '短语',
-    SENTENCE: '句式',
+    PATTERN: '句式',
+    SENTENCE: '句子',
     ARTICLE: '英语文章',
   }
   return labels[value] ?? value

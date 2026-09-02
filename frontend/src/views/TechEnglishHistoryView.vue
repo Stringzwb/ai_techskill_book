@@ -43,7 +43,8 @@ const filteredTags = ref<FlatTagOption[]>([])
 /** 转换识图结果类型文案。 */
 function corpusTypeLabel(value: string): string {
   if (value === 'PHRASE') return '短语'
-  if (value === 'SENTENCE') return '句式'
+  if (value === 'PATTERN') return '句式'
+  if (value === 'SENTENCE') return '句子'
   return '词汇'
 }
 

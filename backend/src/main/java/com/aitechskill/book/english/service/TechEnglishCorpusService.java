@@ -81,12 +81,48 @@ public class TechEnglishCorpusService {
                         normalizedTagIds,
                         (long) (safePage - 1) * safeSize,
                         safeSize);
+        return toPage(total, safePage, safeSize, corpus);
+    }
+
+    /** 查询已发布语料，支持页面将多个底层类型组合为一个学习分区。 */
+    @Transactional(readOnly = true)
+    public TechEnglishCorpusPageResponse search(
+            String keyword,
+            String corpusType,
+            List<String> corpusTypes,
+            List<Long> tagIds,
+            int page,
+            int size) {
+        int safePage = Math.max(page, 1);
+        int safeSize = size <= 0 ? DEFAULT_PAGE_SIZE : Math.min(size, MAX_PAGE_SIZE);
+        String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        String normalizedType = normalizeOptionalType(corpusType);
+        List<String> normalizedTypes = normalizeOptionalTypes(corpusTypes);
+        List<Long> normalizedTagIds = normalizeFilterTagIds(tagIds);
+        long total = corpusMapper.countPublishedByTypes(normalizedKeyword, normalizedType, normalizedTypes, normalizedTagIds);
+        List<TechEnglishCorpusEntity> corpus = total == 0
+                ? List.of()
+                : corpusMapper.selectPublishedPageByTypes(
+                        normalizedKeyword,
+                        normalizedType,
+                        normalizedTypes,
+                        normalizedTagIds,
+                        (long) (safePage - 1) * safeSize,
+                        safeSize);
+        return toPage(total, safePage, safeSize, corpus);
+    }
+
+    private TechEnglishCorpusPageResponse toPage(
+            long total,
+            int page,
+            int size,
+            List<TechEnglishCorpusEntity> corpus) {
         Map<Long, List<DocumentTagResponse>> tagsByCorpus = loadTags(corpus);
         List<TechEnglishCorpusSummaryResponse> items = corpus.stream()
                 .map(item -> toSummary(item, tagsByCorpus.getOrDefault(item.getId(), List.of())))
                 .toList();
-        int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / safeSize);
-        return new TechEnglishCorpusPageResponse(total, safePage, safeSize, totalPages, items);
+        int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / size);
+        return new TechEnglishCorpusPageResponse(total, page, size, totalPages, items);
     }
 
     /** 清理语料库筛选标签，去重并忽略无效 ID。 */
@@ -266,11 +302,23 @@ public class TechEnglishCorpusService {
         String normalized = value.trim().toUpperCase(Locale.ROOT);
         if (!"VOCABULARY".equals(normalized)
                 && !"PHRASE".equals(normalized)
+                && !"PATTERN".equals(normalized)
                 && !"SENTENCE".equals(normalized)
                 && !"ARTICLE".equals(normalized)) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_TYPE_INVALID", "语料类型不合法");
         }
         return normalized;
+    }
+
+    /** 规范化组合筛选类型，并拒绝未知类型。 */
+    private List<String> normalizeOptionalTypes(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .map(this::normalizeRequiredType)
+                .distinct()
+                .toList();
     }
 
     /** 规范化必填语料类型。 */
@@ -369,7 +417,7 @@ public class TechEnglishCorpusService {
 
     /** 按语料类型校验主站轻表单的必要内容。 */
     private void validateTypeContent(String corpusType, TechEnglishCorpusCreateRequest request, MultipartFile imageFile) {
-        if ((isLexicalType(corpusType) || "SENTENCE".equals(corpusType))
+        if ((isLexicalType(corpusType) || "PATTERN".equals(corpusType) || "SENTENCE".equals(corpusType))
                 && !StringUtils.hasText(request.englishText())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "TECH_ENGLISH_CONTENT_REQUIRED", "请填写英文内容");
         }
@@ -392,7 +440,7 @@ public class TechEnglishCorpusService {
         if (explicitTitle != null) {
             return explicitTitle;
         }
-        if (isLexicalType(corpusType) || "SENTENCE".equals(corpusType)) {
+        if (isLexicalType(corpusType) || "PATTERN".equals(corpusType) || "SENTENCE".equals(corpusType)) {
             return abbreviate(trimToNull(request.englishText()), 160);
         }
         String sourceName = trimToNull(request.sourceName());

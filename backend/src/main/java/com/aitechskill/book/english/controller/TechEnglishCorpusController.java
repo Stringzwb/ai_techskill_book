@@ -54,6 +54,7 @@ public class  TechEnglishCorpusController {
     public TechEnglishCorpusPageResponse search(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String corpusType,
+            @RequestParam(required = false) List<String> corpusTypes,
             @RequestParam(required = false) Long tagId,
             @RequestParam(required = false) List<Long> tagIds,
             @RequestParam(defaultValue = "1") int page,
@@ -62,7 +63,7 @@ public class  TechEnglishCorpusController {
         if (tagId != null) {
             filterTagIds.add(tagId);
         }
-        return corpusService.search(keyword, corpusType, filterTagIds, page, size);
+        return corpusService.search(keyword, corpusType, corpusTypes, filterTagIds, page, size);
     }
 
     /** 读取一条已发布技术英语语料。 */
