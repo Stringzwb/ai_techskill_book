@@ -305,6 +305,48 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-report-dock button { min-height: 34px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; color: var(--text); border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 11px; font-weight: 760; }
 .tech-english-report-dock button:hover { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); background: var(--accent-soft); }
 .tech-english-report-dock button:last-child { width: 34px; padding: 0; justify-content: center; color: var(--subtle); }
+.tech-english-view-switch { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); }
+.tech-english-view-switch button { width: 30px; height: 28px; display: grid; place-items: center; color: var(--subtle); border: 0; border-radius: 6px; background: transparent; }
+.tech-english-view-switch button:hover, .tech-english-view-switch button.active { color: var(--primary); background: var(--surface); box-shadow: 0 2px 7px rgba(33, 49, 76, .1); }
+.tech-english-result-list--cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.tech-english-result-list--cards .tech-english-result-item { min-height: 188px; padding: 20px; border: 1px solid var(--border); border-radius: 13px; box-shadow: 0 7px 20px rgba(33, 49, 76, .045); }
+.tech-english-result-list--cards .tech-english-result-item:hover { box-shadow: 0 13px 28px rgba(33, 49, 76, .09); }
+.tech-english-result-list--tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tech-english-result-list--tiles .tech-english-result-item { min-height: 148px; padding: 15px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); }
+.tech-english-result-list--tiles .tech-english-result-item h3 { margin-top: 10px; font-size: 16px; }
+.tech-english-result-list--tiles .tech-english-result-item--vocabulary h3 { font-size: 20px; }
+.tech-english-result-list--tiles .tech-english-result-item__translation { font-size: 12px; }
+
+/* 识图工作台：中性底色承载内容，单一蓝色作为操作强调。 */
+.tech-english-ai-studio { border: 1px solid #dfe4ec; border-radius: 16px; background: #fbfcfe; box-shadow: 0 14px 38px rgba(37, 52, 79, .08); }
+.tech-english-ai-studio__header { min-height: 136px; padding: 28px 30px; color: #273247; border-bottom: 1px solid #dfe4ec; background: #f3f5fa !important; box-shadow: none !important; }
+.tech-english-ai-studio__header > div:first-child > span { color: #4e63b8; }
+.tech-english-ai-studio__header h2 { color: #1f2937; }
+.tech-english-ai-studio__header p { color: #667085; }
+.tech-english-ai-source { border-color: #d7ddea; background: #fff; }
+.tech-english-ai-source small { color: #8b95a7; }
+.tech-english-ai-source strong { color: #273247; }
+.tech-english-ai-source .secondary-button { color: #4358ad; border-color: #c9d2ed; background: #f5f7ff; }
+.tech-english-ai-source .secondary-button:hover { color: #30479d; border-color: #aebbe2; background: #edf1ff; }
+.tech-english-ai-layout { background: #fff; }
+.tech-english-ai-modes { border-right-color: #e3e7ef; background: #f8f9fc; }
+.tech-english-ai-auto-mode { color: #4c61b7; border-color: #c3cdef; background: #eef2ff; box-shadow: none; }
+.tech-english-ai-auto-mode strong, .tech-english-ai-config-summary strong { color: #273247; }
+.tech-english-ai-config-summary { border-color: #e2e6ee; background: #fff; }
+.tech-english-ai-flow span { color: #b85f48; background: #fff1eb; }
+.tech-english-ai-dropzone { color: #4c61b7; border-color: #aeb9d8; background: #fafbff; }
+.tech-english-ai-dropzone:hover, .tech-english-ai-dropzone.is-dragging { border-color: #6479c8; background: #f2f5ff; box-shadow: inset 0 0 0 2px rgba(100, 121, 200, .08); }
+.tech-english-ai-settings { border-top-color: #e3e7ef; }
+.tech-english-ai-review { border: 1px solid #dfe4ec; border-radius: 13px; background: #f8f9fc; box-shadow: none; }
+.tech-english-ai-review > header { border-bottom-color: #e3e7ef; }
+.tech-english-ai-review > header > div { color: #4c61b7; }
+.tech-english-ai-review__list > article { border: 1px solid #e2e6ee; box-shadow: 0 4px 13px rgba(37, 52, 79, .045); }
+.tech-english-ai-review__list > article > header span { color: #4c61b7; background: #eef2ff; }
+.tech-english-ai-review__pattern { border-left-color: #b85f48; background: #fff5f0; }
+.tech-english-ai-review__pattern small { color: #b85f48; }
+.tech-english-ai-chunk { border-color: #e1e5ed; }
+.tech-english-ai-chunk__header { border-bottom-color: #e3e7ef; background: #f8f9fc; }
+.tech-english-ai-result { border-color: #cfe3dc; background: #f5fbf8; }
 .tech-english-reader-header .reader-meta a { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-weight: 700; }
 .tech-english-reader-content { display: grid; gap: 20px; }
 .tech-english-detail-block { padding: 22px 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
@@ -857,6 +899,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .tech-english-results__header { align-items: flex-start; flex-direction: column; }
   .tech-english-results__tools { width: 100%; align-items: flex-start; justify-content: space-between; }
   .tech-english-result-item { padding: 19px; }
+  .tech-english-result-list--cards, .tech-english-result-list--tiles { grid-template-columns: 1fr; }
   .tech-english-result-item footer { align-items: flex-start; flex-direction: column; }
   .tech-english-report-toggle { flex: 0 0 auto; }
   .tech-english-report-dock { left: 12px; right: 12px; bottom: 14px; justify-content: center; transform: none; }

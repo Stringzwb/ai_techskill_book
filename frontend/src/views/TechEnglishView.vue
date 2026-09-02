@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowRight, BookOpenText, Check, Download, FileDown, FileSearch, FileText, Languages, LogIn, Plus, Quote, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
+import { ArrowRight, BookOpenText, Check, Download, FileDown, FileSearch, FileText, Grid2X2, Languages, LayoutGrid, List, LogIn, Plus, Quote, RotateCcw, Search, Send, SlidersHorizontal, Sparkles, Trash2, Type, UploadCloud, X } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 import KnowledgeTagMultiSelector from '../components/KnowledgeTagMultiSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
@@ -41,6 +41,7 @@ const filterTagIds = ref<number[]>([])
 const result = ref<TechEnglishCorpusPage>({ total: 0, page: 1, size: CORPUS_PAGE_SIZE, totalPages: 0, items: [] })
 const selectedReportIds = ref<number[]>([])
 const reportSelectMode = ref(false)
+const displayMode = ref<'list' | 'cards' | 'tiles'>('list')
 const loading = ref(true)
 const errorMessage = ref('')
 const selectorKey = ref(0)
@@ -905,9 +906,6 @@ onBeforeUnmount(() => {
                     <div v-if="item.keyVocabulary.length" class="tech-english-ai-review__keywords">
                       <span v-for="word in item.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`"><strong>{{ word.word }}</strong>{{ word.partOfSpeech ? ` · ${word.partOfSpeech}` : '' }}{{ word.meaning ? ` · ${word.meaning}` : '' }}</span>
                     </div>
-                    <div v-if="item.scenarioTags.length" class="tech-english-ai-item__scene-tags">
-                      <span v-for="tag in item.scenarioTags" :key="tag.code">{{ tag.label }}</span>
-                    </div>
                     <details v-if="item.examples.length">
                       <summary>{{ item.examples.length }} 条扩展例句</summary>
                       <div v-for="(example, exampleIndex) in item.examples" :key="exampleIndex"><p>{{ example.englishText }}</p><small v-if="example.translationText">{{ example.translationText }}</small></div>
@@ -1121,6 +1119,11 @@ onBeforeUnmount(() => {
           <div><span>ENGLISH CORPUS</span><h2>{{ submittedKeyword ? `“${submittedKeyword}”的结果` : '最新语料' }}</h2></div>
           <div class="tech-english-results__tools">
             <small v-if="!loading">{{ corpusFilterTypes.find((item) => item.value === corpusType)?.label || selectionLabel || '全部语料' }}</small>
+            <div class="tech-english-view-switch" aria-label="展示方式">
+              <button type="button" :class="{ active: displayMode === 'list' }" title="紧凑列表" aria-label="紧凑列表" @click="displayMode = 'list'"><List :size="15" /></button>
+              <button type="button" :class="{ active: displayMode === 'cards' }" title="学习卡片" aria-label="学习卡片" @click="displayMode = 'cards'"><LayoutGrid :size="15" /></button>
+              <button type="button" :class="{ active: displayMode === 'tiles' }" title="方块速览" aria-label="方块速览" @click="displayMode = 'tiles'"><Grid2X2 :size="15" /></button>
+            </div>
             <button class="tech-english-report-toggle" type="button" :class="{ active: reportSelectMode || selectedReportCount }" title="报告篮" aria-label="报告篮" @click="toggleReportSelectMode">
               <FileDown :size="15" />
               <span v-if="selectedReportCount">{{ selectedReportCount }}</span>
@@ -1135,7 +1138,7 @@ onBeforeUnmount(() => {
         <div v-else-if="!result.items.length" class="document-result-state">
           <BookOpenText :size="27" /><strong>没有找到匹配语料</strong><span>可以更换关键词、语料类型或知识标签。</span>
         </div>
-        <div v-else class="tech-english-result-list">
+        <div v-else class="tech-english-result-list" :class="`tech-english-result-list--${displayMode}`">
           <article v-for="item in result.items" :key="item.id" class="tech-english-result-item" :class="[`tech-english-result-item--${item.corpusType.toLowerCase()}`, { 'is-selecting': reportSelectMode, 'is-selected': isReportSelected(item.id) }]">
             <div class="tech-english-result-item__meta">
               <span>{{ typeLabel(item.corpusType) }}</span>
