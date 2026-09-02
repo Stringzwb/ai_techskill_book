@@ -1,0 +1,18 @@
+技术英语语料工作台改版与历史归类
+
+本次发布内容
+1. 技术英语语料列表改为轻量报告篮交互：主卡片不再显示“加入报告”文字按钮，选择控件仅在需要时出现，导出操作集中在底部报告篮。
+2. 保留紧凑列表、卡片网格和语料速览三种展示方式，并补充移动端布局适配。
+3. 语料详情不再展示已入库来源截图，也不在识图复核和结果页暴露截图与语料的后台关联文案。
+4. 新增 Flyway V18，将历史 IMAGE 语料归入 PHRASE，并按保守规则将明显完整句归入 SENTENCE、包含空格的旧词汇归入 PHRASE。
+
+部署执行记录
+1. 部署时间：2026-09-02 14:52（Asia/Shanghai）。
+2. 发布提交：29142b3 feat(tech-english): refine corpus workspace and reclassify legacy entries。
+3. 生产机只读校验：项目目录为 /home/ai_techskill_book，分支为 main，目标服务和 Nginx、Redis 均为 active。
+4. 部署命令：显式指定生产主机 38.22.90.174 后执行 /home/ai_techskill_book/scripts/deploy-server.sh。
+5. 后端构建：mvn clean test package 通过，54 项测试通过，1 项对象存储集成测试跳过。
+6. 前端构建：npm ci 与 npm run build 通过。
+7. 上线校验：/actuator/health 返回 UP，/api/ping 返回 ok，HTTPS 首页返回 200，certbot-renew-ai-techskill-book.timer 为 active。
+8. 备份目录：/opt/ai-techskill-book/backups/20260902_145207。
+9. 本次部署未记录服务器账号、密码、Token 或环境变量真实值。
