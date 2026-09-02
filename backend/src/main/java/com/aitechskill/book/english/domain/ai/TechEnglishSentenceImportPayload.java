@@ -23,6 +23,7 @@ public record TechEnglishSentenceImportPayload(
             List<KeyVocabulary> keyVocabulary,
             String classicPattern,
             String patternExplanation,
+            List<String> scenarioTags,
             List<PatternExample> patternExamples) {
     }
 

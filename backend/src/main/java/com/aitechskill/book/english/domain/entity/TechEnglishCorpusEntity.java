@@ -68,6 +68,9 @@ public class TechEnglishCorpusEntity extends BaseEntity {
     /** 技术场景。 */
     private String scenario;
 
+    /** 固定场景标签 JSON。 */
+    private String scenarioTags;
+
     /** 难度。 */
     private String difficulty;
 

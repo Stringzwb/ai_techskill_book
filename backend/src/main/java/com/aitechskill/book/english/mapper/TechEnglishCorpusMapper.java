@@ -28,11 +28,17 @@ public interface TechEnglishCorpusMapper extends BaseMapper<TechEnglishCorpusEnt
     /** 查询一条已发布语料。 */
     TechEnglishCorpusEntity selectPublishedById(@Param("id") long id);
 
+    /** 批量查询已发布语料。 */
+    List<TechEnglishCorpusEntity> selectPublishedByIds(@Param("ids") List<Long> ids);
+
     /** 校验给定知识标签全部有效。 */
     long countActiveTags(@Param("tagIds") List<Long> tagIds);
 
     /** 批量写入语料知识标签关联。 */
     int insertTagLinks(@Param("corpusId") long corpusId, @Param("tagIds") List<Long> tagIds);
+
+    /** 软删除一条语料的全部知识标签关联。 */
+    int deleteTagLinks(@Param("corpusId") long corpusId, @Param("userId") long userId);
 
     /** 批量查询语料关联知识标签。 */
     List<DocumentTagRecord> selectTagsByCorpusIds(@Param("corpusIds") List<Long> corpusIds);

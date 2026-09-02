@@ -18,11 +18,13 @@ public record TechEnglishVocabularyImportPayload(
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record Item(
             Integer sourceImageIndex,
+            String corpusType,
             String word,
             String partOfSpeech,
             String meaning,
             String britishPhonetic,
             String americanPhonetic,
+            List<String> scenarioTags,
             List<Example> examples) {
     }
 

@@ -3,11 +3,13 @@
   "items": [
     {
       "sourceImageIndex": 1,
+      "corpusType": "VOCABULARY or PHRASE",
       "word": "string",
       "partOfSpeech": "string or null",
       "meaning": "string",
       "britishPhonetic": "IPA string or null",
       "americanPhonetic": "IPA string or null",
+      "scenarioTags": ["fixed scenario tag code"],
       "examples": [
         {
           "englishText": "string",

@@ -15,6 +15,7 @@ import java.util.List;
  * @param americanPhonetic 美式音标
  * @param sentencePattern 经典句式
  * @param sentencePatternExplanation 经典句式解析
+ * @param scenarioTags 固定场景标签
  * @param keyVocabulary 重点词汇
  * @param examples 生词或经典句式例句
  */
@@ -29,6 +30,7 @@ public record TechEnglishAiRecognitionItemResponse(
         String americanPhonetic,
         String sentencePattern,
         String sentencePatternExplanation,
+        List<TechEnglishScenarioTagResponse> scenarioTags,
         List<TechEnglishKeyVocabularyResponse> keyVocabulary,
         List<TechEnglishPatternExampleResponse> examples) {
 }

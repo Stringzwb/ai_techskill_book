@@ -2,21 +2,30 @@ package com.aitechskill.book.english.controller;
 
 import com.aitechskill.book.auth.utils.UserContextHolder;
 import com.aitechskill.book.english.domain.TechEnglishImageContent;
+import com.aitechskill.book.english.domain.TechEnglishRecognitionExport;
+import com.aitechskill.book.english.domain.TechEnglishScenarioTagCatalog;
 import com.aitechskill.book.english.domain.request.TechEnglishCorpusCreateRequest;
+import com.aitechskill.book.english.domain.request.TechEnglishCorpusMetadataUpdateRequest;
 import com.aitechskill.book.english.domain.request.TechEnglishVocabularyExampleRequest;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusPageResponse;
+import com.aitechskill.book.english.domain.response.TechEnglishScenarioTagResponse;
 import com.aitechskill.book.english.service.TechEnglishCorpusService;
+import com.aitechskill.book.english.service.TechEnglishCorpusReportService;
+import jakarta.validation.Valid;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -28,12 +37,16 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 @RequestMapping("/api/tech-english/corpus")
-public class TechEnglishCorpusController {
+public class  TechEnglishCorpusController {
 
     private final TechEnglishCorpusService corpusService;
+    private final TechEnglishCorpusReportService reportService;
 
-    public TechEnglishCorpusController(TechEnglishCorpusService corpusService) {
+    public TechEnglishCorpusController(
+            TechEnglishCorpusService corpusService,
+            TechEnglishCorpusReportService reportService) {
         this.corpusService = corpusService;
+        this.reportService = reportService;
     }
 
     /** 查询已发布技术英语语料。 */
@@ -58,6 +71,36 @@ public class TechEnglishCorpusController {
         return corpusService.getPublishedCorpus(id);
     }
 
+    /** 返回固定场景标签选项。 */
+    @GetMapping("/scenario-tags")
+    public List<TechEnglishScenarioTagResponse> scenarioTags() {
+        return TechEnglishScenarioTagCatalog.list();
+    }
+
+    /** 详情页更新语料知识标签和场景标签。 */
+    @PatchMapping("/{id}/metadata")
+    public TechEnglishCorpusDetailResponse updateMetadata(
+            @PathVariable long id,
+            @Valid @RequestBody TechEnglishCorpusMetadataUpdateRequest request) {
+        return corpusService.updateMetadata(id, request, UserContextHolder.requireUserId());
+    }
+
+    /** 批量导出选中语料学习报告。 */
+    @GetMapping("/report")
+    public ResponseEntity<byte[]> exportReport(
+            @RequestParam List<Long> ids,
+            @RequestParam(defaultValue = "html") String format) {
+        TechEnglishRecognitionExport export = reportService.export(ids, format);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(export.contentType()))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(export.filename(), java.nio.charset.StandardCharsets.UTF_8)
+                                .build()
+                                .toString())
+                .body(export.content());
+    }
+
     /** 将用户选择的词汇例句单独保存为技术句子语料。 */
     @PostMapping("/{vocabularyCorpusId}/examples/{exampleId}/sentence")
     public TechEnglishCorpusDetailResponse saveVocabularyExampleAsSentence(
@@ -80,9 +123,10 @@ public class TechEnglishCorpusController {
             @RequestParam(required = false) String sourceName,
             @RequestParam(required = false) String sourceUrl,
             @RequestParam(required = false) String scenario,
+            @RequestParam(required = false) List<String> scenarioTagCodes,
             @RequestParam(required = false) String difficulty,
             @RequestParam(required = false) String translationText,
-            @RequestParam List<Long> tagIds,
+            @RequestParam(required = false) List<Long> tagIds,
             @RequestParam(required = false) List<String> exampleEnglishTexts,
             @RequestParam(required = false) List<String> exampleTranslationTexts,
             @RequestParam(defaultValue = "false") boolean syncExamplesToSentences,
@@ -98,6 +142,7 @@ public class TechEnglishCorpusController {
                 sourceName,
                 sourceUrl,
                 scenario,
+                scenarioTagCodes,
                 difficulty,
                 translationText,
                 tagIds,

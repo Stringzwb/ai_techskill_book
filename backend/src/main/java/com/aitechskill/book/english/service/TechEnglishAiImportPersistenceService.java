@@ -1,6 +1,7 @@
 package com.aitechskill.book.english.service;
 
 import com.aitechskill.book.common.exception.BusinessException;
+import com.aitechskill.book.english.domain.TechEnglishScenarioTagCatalog;
 import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishSentenceImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishVocabularyImportPayload;
@@ -38,6 +39,9 @@ import org.springframework.util.StringUtils;
 public class TechEnglishAiImportPersistenceService {
 
     private static final int MAX_ITEMS_PER_IMPORT = 100;
+    private static final String VOCABULARY_TYPE = "VOCABULARY";
+    private static final String PHRASE_TYPE = "PHRASE";
+    private static final String SENTENCE_TYPE = "SENTENCE";
 
     private final TechEnglishCorpusMapper corpusMapper;
     private final TechEnglishVocabularyExampleMapper vocabularyExampleMapper;
@@ -140,14 +144,15 @@ public class TechEnglishAiImportPersistenceService {
                 continue;
             }
             int imageIndex = requireImageIndex(item.sourceImageIndex(), images.size());
+            String corpusType = normalizeLexicalType(item.corpusType(), word);
             List<Long> tagIds = requireTagIds(
                     itemTagAssignments,
-                    TechEnglishAiRecognitionItemKey.create("VOCABULARY", imageIndex, word));
+                    TechEnglishAiRecognitionItemKey.create(corpusType, imageIndex, word));
             List<TechEnglishVocabularyImportPayload.Example> examples = normalizeVocabularyExamples(
                     item.examples(), exampleCount);
             TechEnglishCorpusEntity corpus = baseCorpus(
-                    "VOCABULARY", word, word, batchUuid, imageIndex, images,
-                    sourceName, scenario, userId);
+                    corpusType, word, word, batchUuid, imageIndex, images,
+                    sourceName, scenario, item.scenarioTags(), userId);
             corpus.setPartOfSpeech(trimToNull(item.partOfSpeech(), 64));
             corpus.setBritishPhonetic(trimToNull(item.britishPhonetic(), 120));
             corpus.setAmericanPhonetic(trimToNull(item.americanPhonetic(), 120));
@@ -184,13 +189,13 @@ public class TechEnglishAiImportPersistenceService {
             int imageIndex = requireImageIndex(item.sourceImageIndex(), images.size());
             List<Long> tagIds = requireTagIds(
                     itemTagAssignments,
-                    TechEnglishAiRecognitionItemKey.create("SENTENCE", imageIndex, sentence));
+                    TechEnglishAiRecognitionItemKey.create(SENTENCE_TYPE, imageIndex, sentence));
             List<TechEnglishKeyVocabularyResponse> keyVocabulary = normalizeKeyVocabulary(item.keyVocabulary());
             List<TechEnglishPatternExampleResponse> patternExamples = normalizePatternExamples(
                     item.patternExamples(), exampleCount);
             TechEnglishCorpusEntity corpus = baseCorpus(
-                    "SENTENCE", abbreviate(sentence, 160), sentence, batchUuid, imageIndex, images,
-                    sourceName, scenario, userId);
+                    SENTENCE_TYPE, abbreviate(sentence, 160), sentence, batchUuid, imageIndex, images,
+                    sourceName, scenario, item.scenarioTags(), userId);
             corpus.setTranslationText(trimToNull(item.translation(), 5000));
             corpus.setTranslationStatus(StringUtils.hasText(corpus.getTranslationText()) ? "READY" : "NONE");
             corpus.setSentencePattern(trimToNull(item.classicPattern(), 500));
@@ -216,6 +221,7 @@ public class TechEnglishAiImportPersistenceService {
             List<StoredObject> images,
             String sourceName,
             String scenario,
+            List<String> scenarioTags,
             long userId) {
         TechEnglishCorpusEntity corpus = new TechEnglishCorpusEntity();
         corpus.setCorpusUuid(UUID.randomUUID().toString());
@@ -226,6 +232,7 @@ public class TechEnglishAiImportPersistenceService {
         corpus.setImageAlt(sourceName + "截图 " + imageIndex);
         corpus.setSourceName(sourceName);
         corpus.setScenario(trimToNull(scenario, 80));
+        corpus.setScenarioTags(toJson(TechEnglishScenarioTagCatalog.normalize(scenarioTags)));
         corpus.setDifficulty("INTERMEDIATE");
         corpus.setAiReviewStatus("REVIEWED");
         corpus.setAiReviewNotes("AI 截图识别导入");
@@ -405,6 +412,20 @@ public class TechEnglishAiImportPersistenceService {
     /** 返回第一个有内容的字符串。 */
     private String firstText(String first, String second) {
         return StringUtils.hasText(first) ? first : second;
+    }
+
+    /** 将词汇分支里的单词和短语拆成最终入库类型。 */
+    private String normalizeLexicalType(String value, String text) {
+        if (StringUtils.hasText(value)) {
+            String normalized = value.trim().toUpperCase(Locale.ROOT);
+            if (PHRASE_TYPE.equals(normalized)) {
+                return PHRASE_TYPE;
+            }
+            if (VOCABULARY_TYPE.equals(normalized)) {
+                return VOCABULARY_TYPE;
+            }
+        }
+        return text != null && text.trim().contains(" ") ? PHRASE_TYPE : VOCABULARY_TYPE;
     }
 
     /** 清理空白并限制字段长度。 */

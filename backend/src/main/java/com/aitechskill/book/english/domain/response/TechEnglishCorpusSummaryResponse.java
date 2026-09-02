@@ -19,6 +19,7 @@ import java.util.List;
  * @param imageUrl 图片访问地址
  * @param imageAlt 图片替代文本
  * @param scenario 技术场景
+ * @param scenarioTags 固定场景标签
  * @param difficulty 难度
  * @param tags 轻量标签
  * @param translationText 翻译文本
@@ -40,6 +41,7 @@ public record TechEnglishCorpusSummaryResponse(
         String imageUrl,
         String imageAlt,
         String scenario,
+        List<TechEnglishScenarioTagResponse> scenarioTags,
         String difficulty,
         String tags,
         String translationText,

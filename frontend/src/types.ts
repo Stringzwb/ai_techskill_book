@@ -101,10 +101,17 @@ export interface DocumentDetail extends DocumentSummary {
 }
 
 /** 技术英语语料类型。 */
-export type TechEnglishCorpusType = 'VOCABULARY' | 'SENTENCE' | 'IMAGE' | 'ARTICLE'
+export type TechEnglishCorpusType = 'VOCABULARY' | 'PHRASE' | 'SENTENCE' | 'ARTICLE'
 
 /** 技术英语语料难度。 */
 export type TechEnglishDifficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'
+
+/** 固定场景标签。 */
+export interface TechEnglishScenarioTag {
+  code: string
+  label: string
+  description: string
+}
 
 /** 技术英语语料列表项。 */
 export interface TechEnglishCorpusSummary {
@@ -120,6 +127,7 @@ export interface TechEnglishCorpusSummary {
   imageUrl: string | null
   imageAlt: string | null
   scenario: string | null
+  scenarioTags: TechEnglishScenarioTag[]
   difficulty: TechEnglishDifficulty
   tags: string | null
   translationText: string | null
@@ -190,6 +198,7 @@ export interface TechEnglishCorpusCreatePayload {
   sourceName?: string
   sourceUrl?: string
   scenario?: string
+  scenarioTagCodes?: string[]
   difficulty?: TechEnglishDifficulty
   translationText?: string
   tagIds: number[]
@@ -214,7 +223,7 @@ export interface TechEnglishAiImportPayload {
 export interface TechEnglishAiRecognitionItem {
   itemKey: string
   sourceImageIndex: number
-  corpusType: 'VOCABULARY' | 'SENTENCE'
+  corpusType: 'VOCABULARY' | 'PHRASE' | 'SENTENCE'
   englishText: string
   partOfSpeech: string | null
   translationText: string | null
@@ -222,6 +231,7 @@ export interface TechEnglishAiRecognitionItem {
   americanPhonetic: string | null
   sentencePattern: string | null
   sentencePatternExplanation: string | null
+  scenarioTags: TechEnglishScenarioTag[]
   keyVocabulary: TechEnglishKeyVocabulary[]
   examples: TechEnglishPatternExample[]
 }

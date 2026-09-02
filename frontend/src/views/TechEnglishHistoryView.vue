@@ -40,6 +40,13 @@ function flattenTags(nodes: KnowledgeTagNode[], parents: string[] = []): FlatTag
 const flatTags = ref<FlatTagOption[]>([])
 const filteredTags = ref<FlatTagOption[]>([])
 
+/** 转换识图结果类型文案。 */
+function corpusTypeLabel(value: string): string {
+  if (value === 'PHRASE') return '短语'
+  if (value === 'SENTENCE') return '句式'
+  return '词汇'
+}
+
 /** 根据搜索词刷新历史入库标签候选。 */
 function refreshTagOptions(): void {
   const query = tagSearch.value.trim().toLowerCase()
@@ -391,7 +398,7 @@ watch(
               <div class="tech-english-history-task__items">
                 <article v-for="item in task.items" :key="item.itemKey" class="tech-english-history-task__item">
                   <div class="tech-english-history-task__item-top">
-                    <span>{{ item.corpusType === 'VOCABULARY' ? '生词' : '经典句子' }}</span>
+                    <span>{{ corpusTypeLabel(item.corpusType) }}</span>
                     <small>截图 {{ item.sourceImageIndex }}</small>
                   </div>
                   <h3>{{ item.englishText }}</h3>
@@ -406,6 +413,9 @@ watch(
                   </div>
                   <div v-if="item.keyVocabulary.length" class="tech-english-history-item__list">
                     <span v-for="word in item.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`">{{ word.word }}</span>
+                  </div>
+                  <div v-if="item.scenarioTags.length" class="tech-english-history-item__list">
+                    <span v-for="tag in item.scenarioTags" :key="tag.code">{{ tag.label }}</span>
                   </div>
                       <div v-if="item.examples.length" class="tech-english-history-item__examples">
                     <div v-for="(example, index) in item.examples" :key="index">

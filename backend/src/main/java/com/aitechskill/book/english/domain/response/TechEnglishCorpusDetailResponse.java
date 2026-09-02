@@ -23,6 +23,7 @@ import java.util.List;
  * @param sourceName 来源名称
  * @param sourceUrl 来源链接
  * @param scenario 技术场景
+ * @param scenarioTags 固定场景标签
  * @param difficulty 难度
  * @param tags 轻量标签
  * @param translationText 翻译文本
@@ -52,6 +53,7 @@ public record TechEnglishCorpusDetailResponse(
         String sourceName,
         String sourceUrl,
         String scenario,
+        List<TechEnglishScenarioTagResponse> scenarioTags,
         String difficulty,
         String tags,
         String translationText,

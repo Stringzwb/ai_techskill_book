@@ -1,6 +1,5 @@
 package com.aitechskill.book.english.domain.request;
 
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -20,9 +19,10 @@ public record TechEnglishCorpusCreateRequest(
         @Size(max = 120) String sourceName,
         @Size(max = 2048) String sourceUrl,
         @Size(max = 80) String scenario,
+        @Size(max = 4) List<@Size(max = 64) String> scenarioTagCodes,
         @Size(max = 16) String difficulty,
         @Size(max = 5000) String translationText,
-        @NotNull @NotEmpty @Size(max = 20) List<@Positive Long> tagIds,
+        @Size(max = 20) List<@Positive Long> tagIds,
         List<TechEnglishVocabularyExampleRequest> vocabularyExamples,
         Boolean syncExamplesToSentences) {
 }

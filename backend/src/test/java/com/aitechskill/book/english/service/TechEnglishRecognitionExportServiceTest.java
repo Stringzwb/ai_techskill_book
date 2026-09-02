@@ -29,7 +29,7 @@ class TechEnglishRecognitionExportServiceTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 9, 1, 20, 0, 0);
         TechEnglishAiRecognitionItemResponse item = new TechEnglishAiRecognitionItemResponse(
                 "item-1", 1, "VOCABULARY", "resilient <word>", "adjective", "有韧性的",
-                "/r/", "/r/", null, null, List.of(), List.of());
+                "/r/", "/r/", null, null, List.of(), List.of(), List.of());
         TechEnglishRecognitionHistoryTaskResponse task = new TechEnglishRecognitionHistoryTaskResponse(
                 "batch-1", "RECOGNIZED", 1, 1, 1, 1, null, null,
                 createdAt, createdAt, null, List.of(item));

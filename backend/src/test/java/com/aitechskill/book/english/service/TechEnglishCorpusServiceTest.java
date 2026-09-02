@@ -16,7 +16,6 @@ import com.aitechskill.book.english.domain.request.TechEnglishVocabularyExampleR
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
 import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
-import com.aitechskill.book.storage.domain.StoredObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -74,6 +73,7 @@ class TechEnglishCorpusServiceTest {
                 null,
                 null,
                 "backend",
+                null,
                 "INTERMEDIATE",
                 "幂等",
                 List.of(3L, 3L),
@@ -100,21 +100,12 @@ class TechEnglishCorpusServiceTest {
         verify(corpusMapper).countPublished(null, null, List.of(3L, 4L));
     }
 
-    /** 验证图片语料通过对象存储写入并返回同源读取地址。 */
+    /** 验证不再允许用图片类型新建语料。 */
     @Test
-    void createsImageCorpusFromUploadedFile() {
+    void rejectsImageCorpusFromUploadedFile() {
         MockMultipartFile image = new MockMultipartFile("imageFile", "flow.png", "image/png", new byte[] {1, 2, 3});
-        given(corpusMapper.countActiveTags(List.of(6L))).willReturn(1L);
-        given(imageStorageService.save(7L, image)).willReturn(new StoredObject("prod/tech_english/2026/08/7/flow.png", "image/png", 3));
-        given(corpusMapper.insert(any(TechEnglishCorpusEntity.class))).willAnswer(invocation -> {
-            TechEnglishCorpusEntity corpus = invocation.getArgument(0);
-            corpus.setId(21L);
-            return 1;
-        });
-        given(corpusMapper.insertTagLinks(21L, List.of(6L))).willReturn(1);
-        given(corpusMapper.selectTagsByCorpusIds(List.of(21L))).willReturn(List.of());
 
-        TechEnglishCorpusDetailResponse response = service.create(new TechEnglishCorpusCreateRequest(
+        assertThatThrownBy(() -> service.create(new TechEnglishCorpusCreateRequest(
                 "IMAGE",
                 "Queue retry diagram",
                 null,
@@ -125,17 +116,15 @@ class TechEnglishCorpusServiceTest {
                 null,
                 null,
                 "architecture",
+                null,
                 "ADVANCED",
                 null,
                 List.of(6L),
                 List.of(),
-                false), image, 7L);
-
-        ArgumentCaptor<TechEnglishCorpusEntity> captor = ArgumentCaptor.forClass(TechEnglishCorpusEntity.class);
-        verify(corpusMapper).insert(captor.capture());
-        assertThat(captor.getValue().getImageObjectKey()).isEqualTo("prod/tech_english/2026/08/7/flow.png");
-        assertThat(captor.getValue().getImageUrl()).isNull();
-        assertThat(response.imageUrl()).isEqualTo("/api/tech-english/corpus/21/image");
+                false), image, 7L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessage("语料类型不合法");
+        verify(imageStorageService, never()).save(org.mockito.ArgumentMatchers.anyLong(), any());
     }
 
     /** 验证文章语料必须有正文或链接。 */
@@ -146,6 +135,7 @@ class TechEnglishCorpusServiceTest {
         assertThatThrownBy(() -> service.create(new TechEnglishCorpusCreateRequest(
                 "ARTICLE",
                 "Clean Architecture",
+                null,
                 null,
                 null,
                 null,
@@ -193,6 +183,7 @@ class TechEnglishCorpusServiceTest {
                 null,
                 null,
                 "backend",
+                null,
                 "INTERMEDIATE",
                 "幂等",
                 List.of(3L),

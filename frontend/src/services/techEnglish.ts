@@ -10,6 +10,7 @@ import type {
   TechEnglishCorpusType,
   TechEnglishRecognitionHistoryDetail,
   TechEnglishRecognitionHistoryPage,
+  TechEnglishScenarioTag,
 } from '../types'
 
 /** 查询已发布技术英语语料。 */
@@ -36,6 +37,22 @@ export function fetchTechEnglishCorpusDetail(id: number): Promise<TechEnglishCor
   return apiRequest<TechEnglishCorpusDetail>(`/api/tech-english/corpus/${id}`)
 }
 
+/** 读取固定场景标签选项。 */
+export function fetchTechEnglishScenarioTags(): Promise<TechEnglishScenarioTag[]> {
+  return apiRequest<TechEnglishScenarioTag[]>('/api/tech-english/corpus/scenario-tags')
+}
+
+/** 在详情页更新语料标签。 */
+export function updateTechEnglishCorpusMetadata(
+  id: number,
+  payload: { tagIds: number[]; scenarioTagCodes: string[] },
+): Promise<TechEnglishCorpusDetail> {
+  return apiRequest<TechEnglishCorpusDetail>(`/api/tech-english/corpus/${id}/metadata`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
 /** 将用户选择的词汇例句保存为独立的技术句子语料。 */
 export function saveTechEnglishVocabularyExampleAsSentence(
   vocabularyCorpusId: number,
@@ -60,9 +77,10 @@ export function createTechEnglishCorpus(payload: TechEnglishCorpusCreatePayload)
   if (payload.sourceName) body.append('sourceName', payload.sourceName)
   if (payload.sourceUrl) body.append('sourceUrl', payload.sourceUrl)
   if (payload.scenario) body.append('scenario', payload.scenario)
+  payload.scenarioTagCodes?.forEach((code) => body.append('scenarioTagCodes', code))
   if (payload.difficulty) body.append('difficulty', payload.difficulty)
   if (payload.translationText) body.append('translationText', payload.translationText)
-  payload.tagIds.forEach((tagId) => body.append('tagIds', String(tagId)))
+  payload.tagIds?.forEach((tagId) => body.append('tagIds', String(tagId)))
   payload.vocabularyExamples?.forEach((example) => {
     body.append('exampleEnglishTexts', example.englishText)
     body.append('exampleTranslationTexts', example.translationText)
@@ -128,4 +146,12 @@ export function downloadTechEnglishRecognitionHistory(sessionUuid: string, forma
 /** 导出识图会话中的单个批次。 */
 export function downloadTechEnglishRecognitionBatchHistory(sessionUuid: string, batchUuid: string, format: 'markdown' | 'html') {
   return `/api/tech-english/imports/history/${sessionUuid}/batches/${batchUuid}/export?format=${format}`
+}
+
+/** 批量导出选中的语料报告。 */
+export function downloadTechEnglishCorpusReport(ids: number[], format: 'html' | 'pdf') {
+  const query = new URLSearchParams()
+  ids.forEach((id) => query.append('ids', String(id)))
+  query.set('format', format)
+  return `/api/tech-english/corpus/report?${query.toString()}`
 }

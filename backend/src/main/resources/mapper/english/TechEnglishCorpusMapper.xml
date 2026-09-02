@@ -55,6 +55,17 @@
         LIMIT 1
     </select>
 
+    <select id="selectPublishedByIds" resultType="com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity">
+        SELECT corpus.*
+        FROM tech_english_corpus AS corpus
+        WHERE corpus.deleted = 0
+          AND corpus.status = 'PUBLISHED'
+          AND corpus.id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
     <select id="countActiveTags" resultType="long">
         SELECT COUNT(*)
         FROM knowledge_tag
@@ -77,6 +88,15 @@
             updateby = 0,
             updatetime = CURRENT_TIMESTAMP
     </insert>
+
+    <update id="deleteTagLinks">
+        UPDATE tech_english_corpus_tag
+        SET deleted = 1,
+            updateby = #{userId},
+            updatetime = CURRENT_TIMESTAMP
+        WHERE corpus_id = #{corpusId}
+          AND deleted = 0
+    </update>
 
     <select id="selectTagsByCorpusIds" resultType="com.aitechskill.book.document.domain.DocumentTagRecord">
         SELECT link.corpus_id AS documentId,

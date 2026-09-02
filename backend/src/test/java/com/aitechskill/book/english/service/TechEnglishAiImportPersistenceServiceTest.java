@@ -71,12 +71,12 @@ class TechEnglishAiImportPersistenceServiceTest {
                 new TechEnglishVocabularyImportPayload(
                         "MINT_VOCABULARY_IMPORT_V1",
                         List.of(new TechEnglishVocabularyImportPayload.Item(
-                                1, "resilient", "adjective", "有韧性的", null, null, List.of()))),
+                                1, "VOCABULARY", "resilient", "adjective", "有韧性的", null, null, List.of(), List.of()))),
                 new TechEnglishSentenceImportPayload(
                         "MINT_SENTENCE_IMPORT_V1",
                         List.of(new TechEnglishSentenceImportPayload.Item(
                                 1, "Small systems can still be resilient.", "小型系统仍然可以很有韧性。",
-                                List.of(), "... can still be ...", "表示仍然具备某种特性", List.of()))));
+                                List.of(), "... can still be ...", "表示仍然具备某种特性", List.of(), List.of()))));
 
         List<TechEnglishCorpusDetailResponse> created = service.saveAuto(
                 "mixed-batch",
@@ -102,7 +102,7 @@ class TechEnglishAiImportPersistenceServiceTest {
         return new TechEnglishCorpusDetailResponse(
                 id, corpusType, corpusType, corpusType, null, null, null, null,
                 null, null, null, null, "mixed-batch", "薄荷阅读", null,
-                null, "INTERMEDIATE", null, null, null, null,
+                null, List.of(), "INTERMEDIATE", null, null, null, null,
                 List.of(), List.of(), null, null, List.of(), List.of());
     }
 }

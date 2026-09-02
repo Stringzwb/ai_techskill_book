@@ -120,8 +120,15 @@ public class TechEnglishRecognitionExportService {
                 output.append("### ").append(itemNumber).append(". ")
                         .append(markdownText(item.englishText())).append("\n\n");
                 output.append("- **类型：** ")
-                        .append("VOCABULARY".equals(item.corpusType()) ? "生词" : "经典句子")
+                        .append(typeLabel(item.corpusType()))
                         .append("\n- **来源截图：** ").append(item.sourceImageIndex()).append("\n");
+                if (!item.scenarioTags().isEmpty()) {
+                    output.append("- **场景标签：** ")
+                            .append(item.scenarioTags().stream()
+                                    .map(tag -> markdownText(tag.label()))
+                                    .collect(java.util.stream.Collectors.joining("、")))
+                            .append("\n");
+                }
                 appendMarkdownField(output, "词性", item.partOfSpeech());
                 appendMarkdownField(output, "英式音标", item.britishPhonetic());
                 appendMarkdownField(output, "美式音标", item.americanPhonetic());
@@ -176,13 +183,17 @@ public class TechEnglishRecognitionExportService {
                 continue;
             }
             for (TechEnglishAiRecognitionItemResponse item : task.items()) {
-                boolean vocabulary = "VOCABULARY".equals(item.corpusType());
                 cards.append("<article class=\"card\"><header><span class=\"index\">")
                         .append(String.format("%02d", globalNumber)).append("</span><span class=\"badge ")
-                        .append(vocabulary ? "word" : "sentence").append("\">")
-                        .append(vocabulary ? "VOCABULARY · 生词" : "SENTENCE · 经典句子")
+                        .append(typeClass(item.corpusType())).append("\">")
+                        .append(typeLabel(item.corpusType()))
                         .append("</span><small>截图 ").append(item.sourceImageIndex()).append("</small></header>")
                         .append("<h2>").append(htmlText(item.englishText())).append("</h2>");
+                if (!item.scenarioTags().isEmpty()) {
+                    cards.append("<div class=\"pronunciation\">");
+                    item.scenarioTags().forEach(tag -> appendHtmlChip(cards, tag.label()));
+                    cards.append("</div>");
+                }
                 if (StringUtils.hasText(item.partOfSpeech())
                         || StringUtils.hasText(item.britishPhonetic())
                         || StringUtils.hasText(item.americanPhonetic())) {
@@ -232,7 +243,7 @@ public class TechEnglishRecognitionExportService {
                 *{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,#dce7ff 0,transparent 34%),var(--paper);color:var(--ink);font:15px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
                 main{width:min(900px,calc(100% - 32px));margin:30px auto 64px}.hero{padding:30px;border-radius:22px;color:#fff;background:linear-gradient(135deg,#17233e,#3157d5 58%,#0c9b79);box-shadow:0 20px 54px #294da82b}.hero small{letter-spacing:.16em;opacity:.8}.hero h1{margin:8px 0 9px;font-size:clamp(27px,5vw,44px);line-height:1.1}.hero p{margin:0;opacity:.86}.stats{display:flex;gap:7px;flex-wrap:wrap;margin-top:18px}.stats span{padding:5px 9px;border:1px solid #ffffff42;border-radius:999px;background:#ffffff14;font-size:13px}
                 .view-switch{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}.view-switch button{padding:5px 9px;color:#dce8ff;border:1px solid #ffffff42;border-radius:999px;background:#ffffff12;font:700 12px/1 inherit;cursor:pointer}.view-switch button:hover,.view-switch button.active{color:#17233e;border-color:#fff;background:#fff}
-                .grid{display:grid;gap:9px;margin-top:14px}.card{padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:#fffffff2;box-shadow:0 5px 18px #26334b0d}.card header{display:flex;align-items:center;gap:8px}.card header small{margin-left:auto;color:var(--muted);font-size:12px}.index{font-weight:800;color:#99a6bc}.badge{padding:3px 7px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.05em}.badge.word{color:#08765d;background:#d9f7ef}.badge.sentence{color:#294bb9;background:#e1e9ff}.card h2{margin:8px 0 5px;font:700 clamp(18px,3.5vw,27px)/1.28 Georgia,"Times New Roman",serif}.pronunciation{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}.pronunciation span,.keywords span{padding:3px 7px;border-radius:7px;background:#eef2f8;color:#44516a;font-size:13px}.card section{margin-top:11px}.card label{display:block;margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.card section p{margin:0}.keywords{display:flex;flex-wrap:wrap;gap:6px}.examples{margin:5px 0 0;padding-left:20px}.examples li{padding:3px 0}.examples p{font-weight:650}.examples small{color:var(--muted)}.failed{padding:16px;border:1px solid #f0c6c6;border-radius:14px;background:#fff3f3;color:#8b3131}
+                .grid{display:grid;gap:9px;margin-top:14px}.card{padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:#fffffff2;box-shadow:0 5px 18px #26334b0d}.card header{display:flex;align-items:center;gap:8px}.card header small{margin-left:auto;color:var(--muted);font-size:12px}.index{font-weight:800;color:#99a6bc}.badge{padding:3px 7px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.05em}.badge.word{color:#08765d;background:#d9f7ef}.badge.phrase{color:#8a4b07;background:#fff2cf}.badge.sentence{color:#294bb9;background:#e1e9ff}.card h2{margin:8px 0 5px;font:700 clamp(18px,3.5vw,27px)/1.28 Georgia,"Times New Roman",serif}.pronunciation{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}.pronunciation span,.keywords span{padding:3px 7px;border-radius:7px;background:#eef2f8;color:#44516a;font-size:13px}.card section{margin-top:11px}.card label{display:block;margin-bottom:3px;color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.card section p{margin:0}.keywords{display:flex;flex-wrap:wrap;gap:6px}.examples{margin:5px 0 0;padding-left:20px}.examples li{padding:3px 0}.examples p{font-weight:650}.examples small{color:var(--muted)}.failed{padding:16px;border:1px solid #f0c6c6;border-radius:14px;background:#fff3f3;color:#8b3131}
                 body.view-cards main{width:min(980px,calc(100% - 32px));margin-top:42px}body.view-cards .grid{gap:18px;margin-top:24px}body.view-cards .card{padding:26px;border-radius:22px;box-shadow:0 10px 34px #26334b12}body.view-cards .card h2{margin:14px 0 8px;font-size:clamp(22px,4vw,34px)}body.view-cards .card section{margin-top:18px}body.view-cards .pronunciation{gap:8px;margin:10px 0}body.view-cards .pronunciation span,body.view-cards .keywords span{padding:5px 10px;border-radius:10px}body.view-cards .examples li{padding:6px 0}
                 body.view-reading main{width:min(740px,calc(100% - 32px));margin-top:24px}body.view-reading .hero{padding:26px 0;color:var(--ink);border-radius:0;border-bottom:2px solid var(--ink);background:transparent;box-shadow:none}body.view-reading .hero small,body.view-reading .hero p{color:var(--muted);opacity:1}body.view-reading .stats span,body.view-reading .view-switch button{color:var(--ink);border-color:var(--line);background:transparent}body.view-reading .view-switch button.active{color:#fff;border-color:var(--ink);background:var(--ink)}body.view-reading .grid{gap:0;margin-top:18px}body.view-reading .card{padding:20px 0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}body.view-reading .card h2{font-size:24px}body.view-reading .card header small{font-size:11px}
                 @media(max-width:600px){main,body.view-cards main,body.view-reading main{width:min(100% - 20px,900px);margin-top:10px}.hero,body.view-cards .hero{padding:21px;border-radius:16px}.card,body.view-cards .card{padding:15px;border-radius:12px}.card header{align-items:flex-start}.card header small{font-size:10px}.view-switch button{font-size:11px}}
@@ -273,6 +284,24 @@ public class TechEnglishRecognitionExportService {
     /** 有内容时增加展示前缀。 */
     private String prefixed(String prefix, String value) {
         return StringUtils.hasText(value) ? prefix + value : null;
+    }
+
+    /** 返回导出里的语料类型展示名称。 */
+    private String typeLabel(String corpusType) {
+        return switch (corpusType) {
+            case "PHRASE" -> "PHRASE · 短语";
+            case "SENTENCE" -> "PATTERN · 句式";
+            default -> "VOCABULARY · 词汇";
+        };
+    }
+
+    /** 返回导出里的语料类型样式名。 */
+    private String typeClass(String corpusType) {
+        return switch (corpusType) {
+            case "PHRASE" -> "phrase";
+            case "SENTENCE" -> "sentence";
+            default -> "word";
+        };
     }
 
     /** 转义 Markdown 行内特殊字符。 */
