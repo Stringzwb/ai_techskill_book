@@ -121,7 +121,7 @@ onMounted(loadCorpus)
           <span v-else-if="corpus.phonetic">{{ corpus.phonetic }}</span>
         </section>
         <section v-if="corpus.sentencePattern" class="tech-english-detail-block tech-english-pattern-card">
-          <small><Quote :size="14" /> CLASSIC PATTERN</small>
+          <small><Quote :size="14" /> SENTENCE FRAMEWORK</small>
           <h2>{{ corpus.sentencePattern }}</h2>
           <p v-if="corpus.sentencePatternExplanation">{{ corpus.sentencePatternExplanation }}</p>
         </section>

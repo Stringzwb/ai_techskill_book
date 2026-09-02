@@ -10,8 +10,10 @@ import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishSentenceImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishVocabularyImportPayload;
 import com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity;
+import com.aitechskill.book.english.domain.entity.TechEnglishSentencePatternEntity;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
+import com.aitechskill.book.english.mapper.TechEnglishSentencePatternMapper;
 import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
 import com.aitechskill.book.storage.domain.StoredObject;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,6 +37,8 @@ class TechEnglishAiImportPersistenceServiceTest {
     @Mock
     private TechEnglishVocabularyExampleMapper vocabularyExampleMapper;
     @Mock
+    private TechEnglishSentencePatternMapper sentencePatternMapper;
+    @Mock
     private TechEnglishCorpusService corpusService;
 
     private TechEnglishAiImportPersistenceService service;
@@ -42,7 +46,7 @@ class TechEnglishAiImportPersistenceServiceTest {
     @BeforeEach
     void setUp() {
         service = new TechEnglishAiImportPersistenceService(
-                corpusMapper, vocabularyExampleMapper, corpusService, new ObjectMapper());
+                corpusMapper, vocabularyExampleMapper, sentencePatternMapper, corpusService, new ObjectMapper());
     }
 
     /** 同一识别批次包含词汇和句子时，两类语料都应在事务中创建。 */
@@ -56,6 +60,12 @@ class TechEnglishAiImportPersistenceServiceTest {
         });
         given(corpusService.getPublishedCorpus(101L)).willReturn(detail(101L, "VOCABULARY"));
         given(corpusService.getPublishedCorpus(102L)).willReturn(detail(102L, "SENTENCE"));
+        given(sentencePatternMapper.selectActiveByNormalizedPattern("... can still be ...")).willReturn(null);
+        given(sentencePatternMapper.insert(any(TechEnglishSentencePatternEntity.class))).willAnswer(invocation -> {
+            TechEnglishSentencePatternEntity pattern = invocation.getArgument(0);
+            pattern.setId(301L);
+            return 1;
+        });
         TechEnglishAutoImportPayload payload = new TechEnglishAutoImportPayload(
                 "MINT_AUTO_IMPORT_V1",
                 new TechEnglishVocabularyImportPayload(
@@ -84,6 +94,7 @@ class TechEnglishAiImportPersistenceServiceTest {
                 .containsExactly("VOCABULARY", "SENTENCE");
         assertThat(created).extracting(TechEnglishCorpusDetailResponse::corpusType)
                 .containsExactly("VOCABULARY", "SENTENCE");
+        verify(sentencePatternMapper).insertCorpusLink(301L, 102L, 7L);
     }
 
     /** 构造最小化的语料详情返回值。 */

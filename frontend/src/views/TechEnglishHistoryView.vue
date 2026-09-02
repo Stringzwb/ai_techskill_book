@@ -85,9 +85,22 @@ function tagPath(tagId: number): string {
 /** 给历史识图结果追加当前标签。 */
 function assignTag(itemKey: string): void {
   if (!selectedTagId.value) return
+  addTag(itemKey, selectedTagId.value)
+}
+
+/** 为一条历史识图结果追加指定标签。 */
+function addTag(itemKey: string, tagId: number): void {
   const values = new Set(itemTagAssignments[itemKey] ?? [])
-  values.add(selectedTagId.value)
+  values.add(tagId)
   itemTagAssignments[itemKey] = [...values]
+}
+
+/** 使用卡片内选择器为单条历史识图结果追加标签。 */
+function addTagFromSelect(itemKey: string, event: Event): void {
+  const select = event.target as HTMLSelectElement
+  const tagId = Number(select.value)
+  if (Number.isSafeInteger(tagId) && tagId > 0) addTag(itemKey, tagId)
+  select.value = ''
 }
 
 /** 清空历史识图结果的标签。 */
@@ -110,9 +123,7 @@ function applyTagToBatch(task: TechEnglishRecognitionHistoryTask, mode: 'append'
       itemTagAssignments[item.itemKey] = [selectedTagId.value as number]
       return
     }
-    const values = new Set(itemTagAssignments[item.itemKey] ?? [])
-    values.add(selectedTagId.value as number)
-    itemTagAssignments[item.itemKey] = [...values]
+    addTag(item.itemKey, selectedTagId.value as number)
   })
 }
 
@@ -385,6 +396,9 @@ watch(
                   </div>
                   <h3>{{ item.englishText }}</h3>
                   <p v-if="item.translationText">{{ item.translationText }}</p>
+                  <section v-if="item.sentencePattern" class="tech-english-history-item__pattern">
+                    <small>句式框架</small><strong>{{ item.sentencePattern }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
+                  </section>
                   <div v-if="item.partOfSpeech || item.britishPhonetic || item.americanPhonetic" class="tech-english-history-item__chips">
                     <span v-if="item.partOfSpeech">{{ item.partOfSpeech }}</span>
                     <span v-if="item.britishPhonetic">英 {{ item.britishPhonetic }}</span>
@@ -406,6 +420,10 @@ watch(
                         <small v-if="!itemTagAssignments[item.itemKey]?.length">未标注</small>
                       </div>
                       <footer v-if="task.status === 'RECOGNIZED'" class="tech-english-ai-item__actions">
+                        <select :aria-label="`为 ${item.englishText} 添加知识标签`" @change="addTagFromSelect(item.itemKey, $event)">
+                          <option value="">添加标签</option>
+                          <option v-for="tag in flatTags" :key="tag.id" :value="tag.id" :disabled="itemTagAssignments[item.itemKey]?.includes(tag.id)">{{ tag.path }}</option>
+                        </select>
                         <button class="secondary-button" type="button" :disabled="!selectedTagId" @click="assignTag(item.itemKey)"><Check :size="14" />使用当前标签</button>
                         <button class="secondary-button" type="button" :disabled="!itemTagAssignments[item.itemKey]?.length" @click="clearTags(item.itemKey)"><X :size="14" />清空</button>
                       </footer>

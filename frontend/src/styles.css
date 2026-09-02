@@ -428,6 +428,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-ai-item__tags span { padding: 0; color: inherit; border-radius: 0; background: transparent; font-size: inherit; font-weight: inherit; }
 .tech-english-ai-item__tags small { color: var(--subtle); font-size: 9px; }
 .tech-english-ai-item__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tech-english-ai-item__actions select { min-height: 30px; max-width: 200px; padding: 0 26px 0 9px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font-size: 11px; }
 .tech-english-ai-item__actions .secondary-button { min-height: 30px; padding: 0 10px; font-size: 11px; }
 .tech-english-ai-review details { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
 .tech-english-ai-review summary { color: var(--primary); cursor: pointer; font-size: 9px; font-weight: 700; }
@@ -499,6 +500,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-history-task__item-top small { color: var(--subtle); font-size: 9px; }
 .tech-english-history-task__item h3 { margin: 10px 0 0; color: var(--text); font-family: "SFMono-Regular", Consolas, monospace; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .tech-english-history-task__item > p { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
+.tech-english-history-item__pattern { margin-top: 9px; padding: 8px 9px; border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; background: var(--accent-soft); }
+.tech-english-history-item__pattern small { display: block; color: var(--accent); font-size: 9px; font-weight: 800; }
+.tech-english-history-item__pattern strong { display: block; margin-top: 4px; color: var(--text); font-family: "SFMono-Regular", Consolas, monospace; font-size: 11px; line-height: 1.55; }
+.tech-english-history-item__pattern p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
 .tech-english-history-item__chips, .tech-english-history-item__list, .tech-english-history-item__examples { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
 .tech-english-history-item__chips span, .tech-english-history-item__list span { padding: 3px 6px; color: var(--primary); border-radius: 5px; background: var(--primary-soft); font-size: 9px; font-weight: 700; }
 .tech-english-history-item__examples { display: grid; gap: 6px; }

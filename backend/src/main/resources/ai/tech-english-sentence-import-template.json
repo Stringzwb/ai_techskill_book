@@ -12,8 +12,8 @@
           "meaning": "string"
         }
       ],
-      "classicPattern": "string",
-      "patternExplanation": "string",
+      "classicPattern": "[Subject] can still be [adjective].",
+      "patternExplanation": "表示主体在特定条件下仍然具备某种特性，can 后接动词原形或 be 加表语。",
       "patternExamples": [
         {
           "englishText": "string",

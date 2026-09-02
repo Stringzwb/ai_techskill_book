@@ -194,6 +194,36 @@ class TechEnglishAiImportServiceTest {
         verify(draftStore).save(any(TechEnglishAiImportDraft.class));
     }
 
+    /** 新识别的句子缺少可复用句式框架时，应提示重试而不是保存不可关联的数据。 */
+    @Test
+    void rejectsNewSentenceWithoutFramework() {
+        MockMultipartFile image = image("missing-pattern.png", 22);
+        given(aiChatService.vision(anyString(), anyList())).willReturn(aiResponse("""
+                {
+                  "templateType": "MINT_AUTO_IMPORT_V1",
+                  "vocabulary": {"templateType": "MINT_VOCABULARY_IMPORT_V1", "items": []},
+                  "sentences": {
+                    "templateType": "MINT_SENTENCE_IMPORT_V1",
+                    "items": [{
+                      "sourceImageIndex": 1,
+                      "sentence": "The system remains stable.",
+                      "translation": "系统保持稳定。",
+                      "keyVocabulary": [],
+                      "classicPattern": null,
+                      "patternExplanation": null,
+                      "patternExamples": []
+                    }]
+                  }
+                }
+                """));
+
+        assertThatThrownBy(() -> service.recognizeScreenshots(null, 0, List.of(image), 7L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("code")
+                .isEqualTo("TECH_ENGLISH_AI_PATTERN_REQUIRED");
+        verify(draftStore, never()).save(any());
+    }
+
     /** 同一批截图可同时按生词和句子默认配置输出。 */
     @Test
     void recognizesMixedVocabularyAndSentences() {
@@ -340,6 +370,34 @@ class TechEnglishAiImportServiceTest {
         assertThat(payloadCaptor.getValue().vocabulary().items()).singleElement()
                 .satisfies(item -> assertThat(item.word()).isEqualTo("meticulous"));
         assertThat(response.batchUuid()).isEqualTo(batchUuid);
+        verify(draftStore).complete(batchUuid);
+    }
+
+    /** 新识别批次确认入库时必须复用服务端来源截图，不能要求客户端再次上传。 */
+    @Test
+    void confirmsDraftWithStoredSourceImagesWithoutClientUpload() {
+        String batchUuid = UUID.randomUUID().toString();
+        MockMultipartFile image = image("stored-confirm.png", 18);
+        TechEnglishAiImportDraft draft = draft(batchUuid, image);
+        TechEnglishAiRecognitionRecordEntity record = new TechEnglishAiRecognitionRecordEntity();
+        record.setBatchUuid(batchUuid);
+        record.setStatus("RECOGNIZED");
+        StoredObject sourceImage = stored("stored-confirm.png");
+        given(draftStore.require(batchUuid, 7L)).willReturn(draft);
+        given(recordService.findImportRecord(7L, batchUuid)).willReturn(record);
+        given(recordService.sourceImages(record)).willReturn(List.of(sourceImage));
+        given(draftStore.acquireConfirmation(batchUuid, 7L)).willReturn(true);
+        given(persistenceService.saveAuto(
+                anyString(), any(), anyList(), anyMap(), anyString(), any(), anyInt(), anyLong()))
+                .willReturn(List.of());
+
+        var response = service.confirmImport(batchUuid, "[]", List.of(), 7L);
+
+        verify(imageStorageService, never()).save(anyLong(), any());
+        verify(persistenceService).saveAuto(
+                anyString(), any(), org.mockito.ArgumentMatchers.eq(List.of(sourceImage)), anyMap(),
+                anyString(), any(), anyInt(), anyLong());
+        assertThat(response.imageCount()).isEqualTo(1);
         verify(draftStore).complete(batchUuid);
     }
 

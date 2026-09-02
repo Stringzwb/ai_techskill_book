@@ -160,9 +160,22 @@ function clearAiItemAssignment(itemKey: string): void {
 /** 为某条识图结果追加当前选中的标签。 */
 function assignCurrentTagToAiItem(itemKey: string): void {
   if (!selectedAiTagId.value) return
+  addAiItemTag(itemKey, selectedAiTagId.value)
+}
+
+/** 为一条识图结果追加指定标签。 */
+function addAiItemTag(itemKey: string, tagId: number): void {
   const next = new Set(aiItemTagAssignments[itemKey] ?? [])
-  next.add(selectedAiTagId.value)
+  next.add(tagId)
   aiItemTagAssignments[itemKey] = Array.from(next)
+}
+
+/** 使用卡片内选择器为单条识图结果追加标签。 */
+function addAiItemTagFromSelect(itemKey: string, event: Event): void {
+  const select = event.target as HTMLSelectElement
+  const tagId = Number(select.value)
+  if (Number.isSafeInteger(tagId) && tagId > 0) addAiItemTag(itemKey, tagId)
+  select.value = ''
 }
 
 /** 从一条识图结果中移除指定标签。 */
@@ -180,9 +193,7 @@ function applyCurrentTagToAiBatch(batch: TechEnglishAiRecognitionResponse, mode:
       aiItemTagAssignments[item.itemKey] = [selectedAiTagId.value as number]
       return
     }
-    const next = new Set(aiItemTagAssignments[item.itemKey] ?? [])
-    next.add(selectedAiTagId.value as number)
-    aiItemTagAssignments[item.itemKey] = [...next]
+    addAiItemTag(item.itemKey, selectedAiTagId.value as number)
   })
 }
 
@@ -581,10 +592,6 @@ async function confirmAiBatch(batch: AiRecognitionChunk): Promise<void> {
     const result = await confirmTechEnglishScreenshotImport({
       batchUuid: batch.batchUuid,
       itemTagAssignments: buildItemTagAssignments(batch),
-      images: aiImages.value.slice(
-        (batch.chunkIndex - 1) * AI_CHUNK_SIZE,
-        (batch.chunkIndex - 1) * AI_CHUNK_SIZE + batch.imageCount,
-      ).map((item) => item.file),
     })
     aiImportResults.value = [...aiImportResults.value, result]
     aiRecognitionResults.value = aiRecognitionResults.value.filter((item) => item.batchUuid !== batch.batchUuid)
@@ -736,7 +743,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="tech-english-ai-config-summary">
             <p><Type :size="15" /><span><strong>生词配置</strong>词性、释义、英美音标与例句</span></p>
-            <p><Languages :size="15" /><span><strong>句子配置</strong>翻译、重点词汇、经典句式与例句</span></p>
+            <p><Languages :size="15" /><span><strong>句子配置</strong>翻译、重点词汇、可复用句式框架与例句</span></p>
           </div>
           <div class="tech-english-ai-flow">
             <span>1</span><p>上传截图并自动切成 5 张一组</p>
@@ -861,7 +868,7 @@ onBeforeUnmount(() => {
                     </div>
                     <p v-if="item.translationText">{{ item.translationText }}</p>
                     <section v-if="item.sentencePattern" class="tech-english-ai-review__pattern">
-                      <small>经典句式</small><strong>{{ item.sentencePattern }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
+                      <small>句式框架</small><strong>{{ item.sentencePattern }}</strong><p v-if="item.sentencePatternExplanation">{{ item.sentencePatternExplanation }}</p>
                     </section>
                     <div v-if="item.keyVocabulary.length" class="tech-english-ai-review__keywords">
                       <span v-for="word in item.keyVocabulary" :key="`${word.word}-${word.partOfSpeech || ''}`"><strong>{{ word.word }}</strong>{{ word.partOfSpeech ? ` · ${word.partOfSpeech}` : '' }}{{ word.meaning ? ` · ${word.meaning}` : '' }}</span>
@@ -877,6 +884,10 @@ onBeforeUnmount(() => {
                       <small v-if="!hasItemTags(item.itemKey)">未标注</small>
                     </div>
                     <footer class="tech-english-ai-item__actions">
+                      <select :aria-label="`为 ${item.englishText} 添加知识标签`" @change="addAiItemTagFromSelect(item.itemKey, $event)">
+                        <option value="">添加标签</option>
+                        <option v-for="tag in flatTags" :key="tag.id" :value="tag.id" :disabled="aiItemTagAssignments[item.itemKey]?.includes(tag.id)">{{ tag.path }}</option>
+                      </select>
                       <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="assignCurrentTagToAiItem(item.itemKey)">使用当前标签</button>
                       <button class="secondary-button" type="button" :disabled="!hasItemTags(item.itemKey)" @click="clearAiItemAssignment(item.itemKey)">清空</button>
                     </footer>

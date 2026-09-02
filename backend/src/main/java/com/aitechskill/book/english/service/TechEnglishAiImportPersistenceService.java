@@ -5,11 +5,13 @@ import com.aitechskill.book.english.domain.ai.TechEnglishAutoImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishSentenceImportPayload;
 import com.aitechskill.book.english.domain.ai.TechEnglishVocabularyImportPayload;
 import com.aitechskill.book.english.domain.entity.TechEnglishCorpusEntity;
+import com.aitechskill.book.english.domain.entity.TechEnglishSentencePatternEntity;
 import com.aitechskill.book.english.domain.entity.TechEnglishVocabularyExampleEntity;
 import com.aitechskill.book.english.domain.response.TechEnglishCorpusDetailResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishKeyVocabularyResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishPatternExampleResponse;
 import com.aitechskill.book.english.mapper.TechEnglishCorpusMapper;
+import com.aitechskill.book.english.mapper.TechEnglishSentencePatternMapper;
 import com.aitechskill.book.english.mapper.TechEnglishVocabularyExampleMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.aitechskill.book.storage.domain.StoredObject;
@@ -23,6 +25,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,16 +41,19 @@ public class TechEnglishAiImportPersistenceService {
 
     private final TechEnglishCorpusMapper corpusMapper;
     private final TechEnglishVocabularyExampleMapper vocabularyExampleMapper;
+    private final TechEnglishSentencePatternMapper sentencePatternMapper;
     private final TechEnglishCorpusService corpusService;
     private final ObjectMapper objectMapper;
 
     public TechEnglishAiImportPersistenceService(
             TechEnglishCorpusMapper corpusMapper,
             TechEnglishVocabularyExampleMapper vocabularyExampleMapper,
+            TechEnglishSentencePatternMapper sentencePatternMapper,
             TechEnglishCorpusService corpusService,
             ObjectMapper objectMapper) {
         this.corpusMapper = corpusMapper;
         this.vocabularyExampleMapper = vocabularyExampleMapper;
+        this.sentencePatternMapper = sentencePatternMapper;
         this.corpusService = corpusService;
         this.objectMapper = objectMapper;
     }
@@ -194,6 +200,7 @@ public class TechEnglishAiImportPersistenceService {
             corpus.setPatternExamplesJson(toJson(patternExamples));
             corpusMapper.insert(corpus);
             if (!tagIds.isEmpty()) corpusMapper.insertTagLinks(corpus.getId(), tagIds);
+            saveSentencePattern(corpus.getId(), corpus.getSentencePattern(), corpus.getSentencePatternExplanation(), userId);
             createdIds.add(corpus.getId());
         }
         return loadCreated(createdIds);
@@ -249,6 +256,50 @@ public class TechEnglishAiImportPersistenceService {
             example.setUpdateby(userId);
             vocabularyExampleMapper.insert(example);
         }
+    }
+
+    /** 将句子上的框架去重保存，并建立可供后续关联检索的独立关系。 */
+    private void saveSentencePattern(
+            long corpusId,
+            String patternText,
+            String patternExplanation,
+            long userId) {
+        String normalizedPattern = normalizePattern(patternText);
+        if (normalizedPattern == null) {
+            return;
+        }
+        TechEnglishSentencePatternEntity pattern = sentencePatternMapper
+                .selectActiveByNormalizedPattern(normalizedPattern);
+        if (pattern == null) {
+            pattern = new TechEnglishSentencePatternEntity();
+            pattern.setPatternText(patternText);
+            pattern.setNormalizedPattern(normalizedPattern);
+            pattern.setPatternExplanation(patternExplanation);
+            pattern.setCreateby(userId);
+            pattern.setUpdateby(userId);
+            try {
+                sentencePatternMapper.insert(pattern);
+            } catch (DuplicateKeyException exception) {
+                pattern = sentencePatternMapper.selectActiveByNormalizedPattern(normalizedPattern);
+                if (pattern == null) {
+                    throw exception;
+                }
+            }
+        } else if (!StringUtils.hasText(pattern.getPatternExplanation()) && StringUtils.hasText(patternExplanation)) {
+            pattern.setPatternExplanation(patternExplanation);
+            pattern.setUpdateby(userId);
+            sentencePatternMapper.updateById(pattern);
+        }
+        if (pattern.getId() == null) {
+            throw new IllegalStateException("句式框架保存后缺少主键");
+        }
+        sentencePatternMapper.insertCorpusLink(pattern.getId(), corpusId, userId);
+    }
+
+    /** 生成用于独立句式框架去重和关联的稳定键。 */
+    private String normalizePattern(String value) {
+        String pattern = trimToNull(value, 500);
+        return pattern == null ? null : pattern.replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
     /** 清洗词汇例句并按用户设置限制数量。 */
