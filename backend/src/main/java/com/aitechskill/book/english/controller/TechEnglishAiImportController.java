@@ -53,6 +53,7 @@ public class TechEnglishAiImportController {
             @RequestParam String sessionUuid,
             @RequestParam int chunkIndex,
             @RequestParam int chunkCount,
+            @RequestParam(required = false) String batchName,
             @RequestParam(required = false) String scenario,
             @RequestParam(defaultValue = "2") int exampleCount,
             @RequestPart(value = "images", required = false) List<MultipartFile> images) {
@@ -60,6 +61,7 @@ public class TechEnglishAiImportController {
                 sessionUuid,
                 chunkIndex,
                 chunkCount,
+                batchName,
                 scenario,
                 exampleCount,
                 images,

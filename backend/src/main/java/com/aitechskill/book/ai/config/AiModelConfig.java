@@ -35,6 +35,9 @@ public class AiModelConfig {
         if (properties.getMaxRetries() < 0) {
             throw new IllegalStateException("AI_MAX_RETRIES 不能小于 0");
         }
+        if (properties.getMaxConcurrentVisionRequests() < 1) {
+            throw new IllegalStateException("AI_MAX_CONCURRENT_VISION_REQUESTS 必须大于 0");
+        }
 
         Set<String> apiKeys = new LinkedHashSet<>();
         addKey(apiKeys, properties.getPrimaryApiKey());

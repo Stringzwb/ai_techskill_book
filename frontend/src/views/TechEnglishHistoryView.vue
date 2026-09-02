@@ -342,7 +342,7 @@ watch(
             @click="openDetail(item.sessionUuid)"
           >
             <div class="tech-english-history-card__top">
-              <strong>{{ item.sourceName || '未命名来源' }}</strong>
+              <strong>{{ item.batchName || item.sourceName || '未命名识图批次' }}</strong>
               <span>{{ statusLabel(item.status) }}</span>
             </div>
             <p>{{ item.scenario || '通用例句语境' }}</p>
@@ -368,7 +368,7 @@ watch(
           <header class="tech-english-history-detail__header">
             <div>
               <span>SESSION DETAIL</span>
-              <h2>{{ detail.sourceName || '识图会话' }}</h2>
+              <h2>{{ detail.batchName || detail.sourceName || '识图会话' }}</h2>
               <p>{{ detail.scenario || '通用例句语境' }}</p>
             </div>
             <div class="tech-english-history-detail__actions">

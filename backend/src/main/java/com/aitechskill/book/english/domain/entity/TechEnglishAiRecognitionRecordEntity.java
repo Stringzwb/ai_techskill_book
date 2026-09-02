@@ -23,6 +23,9 @@ public class TechEnglishAiRecognitionRecordEntity extends BaseEntity {
     /** 页面一次上传会话标识。 */
     private String sessionUuid;
 
+    /** 用户填写的识图批次名称，仅用于识图记录。 */
+    private String batchName;
+
     /** 单个 AI 识别批次标识。 */
     private String batchUuid;
 

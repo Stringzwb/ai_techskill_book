@@ -214,6 +214,7 @@ export interface TechEnglishAiImportPayload {
   sessionUuid: string
   chunkIndex: number
   chunkCount: number
+  batchName?: string
   scenario: string
   exampleCount: number
   images: File[]
@@ -244,6 +245,7 @@ export interface TechEnglishAiRecognitionResponse {
   chunkCount: number
   importType: TechEnglishAiImportType
   sourceName: string
+  batchName: string | null
   imageCount: number
   itemCount: number
   expiresAt: string
@@ -287,6 +289,7 @@ export interface TechEnglishRecognitionHistorySummary {
   sessionUuid: string
   status: 'PROCESSING' | 'FAILED' | 'RECOGNIZED' | 'PARTIAL' | 'IMPORTED'
   sourceName: string | null
+  batchName: string | null
   scenario: string | null
   chunkCount: number
   completedChunkCount: number
@@ -318,6 +321,7 @@ export interface TechEnglishRecognitionHistoryDetail {
   sessionUuid: string
   status: 'PROCESSING' | 'FAILED' | 'RECOGNIZED' | 'PARTIAL' | 'IMPORTED'
   sourceName: string | null
+  batchName: string | null
   scenario: string | null
   imageCount: number
   itemCount: number

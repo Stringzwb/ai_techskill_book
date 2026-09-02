@@ -18,6 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,16 +34,22 @@ import org.springframework.web.multipart.MultipartFile;
 @ConditionalOnProperty(name = "app.ai.enabled", havingValue = "true")
 public class AiChatService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AiChatService.class);
     private static final int MAX_MESSAGE_LENGTH = 20000;
     private static final Set<String> SUPPORTED_IMAGE_TYPES = Set.of(
             "image/jpeg", "image/png", "image/gif", "image/webp");
 
     private final AiModelClients clients;
     private final AiModelProperties properties;
+    private final Semaphore visionSlots;
 
     public AiChatService(AiModelClients clients, AiModelProperties properties) {
         this.clients = clients;
         this.properties = properties;
+        if (properties.getMaxConcurrentVisionRequests() < 1) {
+            throw new IllegalArgumentException("AI_MAX_CONCURRENT_VISION_REQUESTS 必须大于 0");
+        }
+        this.visionSlots = new Semaphore(properties.getMaxConcurrentVisionRequests(), true);
     }
 
     /**
@@ -101,14 +110,31 @@ public class AiChatService {
             contents.add(ImageContent.from(validatedImage.base64Data(), validatedImage.contentType()));
         }
         UserMessage userMessage = UserMessage.from(contents);
-        return generate(userMessage);
+        boolean acquired = false;
+        try {
+            visionSlots.acquire();
+            acquired = true;
+            return generate(userMessage);
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI_VISION_INTERRUPTED",
+                    "AI 识图请求被中断，请稍后重试",
+                    exception);
+        } finally {
+            if (acquired) {
+                visionSlots.release();
+            }
+        }
     }
 
     /** 按配置顺序调用模型，当前 Key 失败时自动切换下一个。 */
     private AiChatResponse generate(UserMessage userMessage) {
         RuntimeException lastFailure = null;
         List<ChatMessage> messages = List.of(userMessage);
-        for (ChatLanguageModel model : clients.models()) {
+        for (int index = 0; index < clients.models().size(); index += 1) {
+            ChatLanguageModel model = clients.models().get(index);
             try {
                 Response<dev.langchain4j.data.message.AiMessage> response = model.generate(messages);
                 if (response == null || response.content() == null || !StringUtils.hasText(response.content().text())) {
@@ -117,6 +143,8 @@ public class AiChatService {
                 return toResponse(response);
             } catch (RuntimeException exception) {
                 lastFailure = exception;
+                LOGGER.warn("AI 模型调用失败，模型序号={}，异常类型={}", index + 1,
+                        exception.getClass().getSimpleName());
             }
         }
         throw new BusinessException(

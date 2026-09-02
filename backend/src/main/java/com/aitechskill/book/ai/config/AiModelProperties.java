@@ -35,6 +35,9 @@ public class AiModelProperties {
     /** 每个 Key 的 SDK 内部重试次数。 */
     private int maxRetries;
 
+    /** 同一进程允许同时进行的视觉模型请求数。 */
+    private int maxConcurrentVisionRequests = 1;
+
     /** 单次回答最大 Token 数。 */
     private int maxOutputTokens = 1000;
 

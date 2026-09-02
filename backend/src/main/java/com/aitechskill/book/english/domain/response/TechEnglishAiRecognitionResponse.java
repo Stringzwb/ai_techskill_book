@@ -24,8 +24,25 @@ public record TechEnglishAiRecognitionResponse(
         int chunkCount,
         String importType,
         String sourceName,
+        String batchName,
         int imageCount,
         int itemCount,
         Instant expiresAt,
         List<TechEnglishAiRecognitionItemResponse> items) {
+
+    /** 兼容未返回批次名称的旧调用方。 */
+    public TechEnglishAiRecognitionResponse(
+            String sessionUuid,
+            String batchUuid,
+            int chunkIndex,
+            int chunkCount,
+            String importType,
+            String sourceName,
+            int imageCount,
+            int itemCount,
+            Instant expiresAt,
+            List<TechEnglishAiRecognitionItemResponse> items) {
+        this(sessionUuid, batchUuid, chunkIndex, chunkCount, importType, sourceName, null,
+                imageCount, itemCount, expiresAt, items);
+    }
 }

@@ -103,6 +103,7 @@ public class TechEnglishAiImportService {
      * @param sessionUuid 页面一次上传会话标识
      * @param chunkIndex 当前并发子任务序号
      * @param chunkCount 并发子任务总数
+     * @param batchName 用户填写的识图批次名称
      * @param scenario 例句场景
      * @param exampleCount 每条语料的例句数
      * @param images 截图列表
@@ -113,12 +114,14 @@ public class TechEnglishAiImportService {
             String sessionUuid,
             int chunkIndex,
             int chunkCount,
+            String batchName,
             String scenario,
             int exampleCount,
             List<MultipartFile> images,
             long userId) {
         String normalizedSessionUuid = normalizeSessionUuid(sessionUuid);
         validateChunk(chunkIndex, chunkCount);
+        String normalizedBatchName = normalizeBatchName(batchName);
         String normalizedScenario = normalizeScenario(scenario);
         int normalizedExampleCount = validateExampleCount(exampleCount);
         validateImages(images);
@@ -132,6 +135,7 @@ public class TechEnglishAiImportService {
                 images.size(),
                 normalizedExampleCount,
                 sourceName,
+                normalizedBatchName,
                 normalizedScenario,
                 userId);
         String prompt = buildPrompt(
@@ -170,7 +174,8 @@ public class TechEnglishAiImportService {
                     normalizedExampleCount,
                     fingerprints,
                     recognition.payloadJson(),
-                    createdAt));
+                    createdAt,
+                    normalizedBatchName));
             long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
             LOGGER.info("技术英语 AI 自动识别完成，批次={}，语料数={}，耗时毫秒={}",
                     batchUuid, recognition.items().size(), elapsedMillis);
@@ -181,6 +186,7 @@ public class TechEnglishAiImportService {
                     chunkCount,
                     AUTO_TYPE,
                     sourceName,
+                    normalizedBatchName,
                     images.size(),
                     recognition.items().size(),
                     createdAt.plus(draftStore.draftTtl()),
@@ -191,8 +197,8 @@ public class TechEnglishAiImportService {
             }
             if (!recordRecognized) recordService.failed(batchUuid, exception);
             long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
-            LOGGER.warn("技术英语 AI 自动识别失败，批次={}，耗时毫秒={}，异常类型={}",
-                    batchUuid, elapsedMillis, exception.getClass().getSimpleName());
+            LOGGER.warn("技术英语 AI 自动识别失败，批次={}，耗时毫秒={}，异常类型={}，错误码={}",
+                    batchUuid, elapsedMillis, exception.getClass().getSimpleName(), failureCode(exception));
             throw exception;
         }
     }
@@ -204,7 +210,20 @@ public class TechEnglishAiImportService {
             List<MultipartFile> images,
             long userId) {
         return recognizeScreenshots(
-                UUID.randomUUID().toString(), 1, 1, scenario, exampleCount, images, userId);
+                UUID.randomUUID().toString(), 1, 1, null, scenario, exampleCount, images, userId);
+    }
+
+    /** 兼容旧调用方，支持未填写识图批次名称。 */
+    public TechEnglishAiRecognitionResponse recognizeScreenshots(
+            String sessionUuid,
+            int chunkIndex,
+            int chunkCount,
+            String scenario,
+            int exampleCount,
+            List<MultipartFile> images,
+            long userId) {
+        return recognizeScreenshots(
+                sessionUuid, chunkIndex, chunkCount, null, scenario, exampleCount, images, userId);
     }
 
     /** 使用失败批次已保存的来源截图重新调用模型。 */
@@ -232,15 +251,16 @@ public class TechEnglishAiImportService {
                     record.getChunkCount(),
                     AUTO_TYPE,
                     record.getSourceName(),
+                    record.getBatchName(),
                     images.size(),
                     recognition.items().size(),
                     expiresAt,
                     recognition.items());
         } catch (RuntimeException exception) {
             recordService.failed(normalizedBatchUuid, exception);
-            LOGGER.warn("技术英语 AI 识图重试失败，批次={}，耗时毫秒={}，异常类型={}",
+            LOGGER.warn("技术英语 AI 识图重试失败，批次={}，耗时毫秒={}，异常类型={}，错误码={}",
                     normalizedBatchUuid, (System.nanoTime() - startedAt) / 1_000_000,
-                    exception.getClass().getSimpleName());
+                    exception.getClass().getSimpleName(), failureCode(exception));
             throw exception;
         }
     }
@@ -334,7 +354,8 @@ public class TechEnglishAiImportService {
                     draft != null ? draft : new TechEnglishAiImportDraft(
                             record.getSessionUuid(), record.getBatchUuid(), record.getChunkIndex(),
                             record.getChunkCount(), userId, AUTO_TYPE, record.getSourceName(),
-                            record.getScenario(), exampleCount, List.of(), payloadJson, Instant.now()),
+                            record.getScenario(), exampleCount, List.of(), payloadJson, Instant.now(),
+                            record.getBatchName()),
                     storedImages, itemTagAssignments, userId);
             recordService.imported(normalizedBatchUuid);
             completed = true;
@@ -713,6 +734,18 @@ public class TechEnglishAiImportService {
         }
     }
 
+    /** 清理并限制用户填写的识图批次名称。 */
+    private String normalizeBatchName(String batchName) {
+        if (!StringUtils.hasText(batchName)) {
+            return null;
+        }
+        String normalized = batchName.trim();
+        if (normalized.length() > 120) {
+            throw badRequest("TECH_ENGLISH_BATCH_NAME_TOO_LONG", "识图批次名称不能超过 120 字");
+        }
+        return normalized;
+    }
+
     /** 校验最多四个并发子任务的序号。 */
     private void validateChunk(int chunkIndex, int chunkCount) {
         if (chunkCount < 1 || chunkCount > 4 || chunkIndex < 1 || chunkIndex > chunkCount) {
@@ -890,6 +923,12 @@ public class TechEnglishAiImportService {
         if (failed > 0) {
             LOGGER.warn("技术英语 AI 确认入库失败后有 {} 个截图对象未能清理", failed);
         }
+    }
+
+    /** 返回可安全写入日志的业务错误码，不记录上游响应正文。 */
+    private String failureCode(RuntimeException exception) {
+        return exception instanceof BusinessException business
+                ? business.getCode() : exception.getClass().getSimpleName();
     }
 
     /** 规范媒体类型用于确认截图一致性。 */

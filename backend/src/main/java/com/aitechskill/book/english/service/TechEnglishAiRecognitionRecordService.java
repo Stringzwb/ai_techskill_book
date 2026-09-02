@@ -52,6 +52,7 @@ public class TechEnglishAiRecognitionRecordService {
             int imageCount,
             int exampleCount,
             String sourceName,
+            String batchName,
             String scenario,
             long userId) {
         TechEnglishAiRecognitionRecordEntity record = new TechEnglishAiRecognitionRecordEntity();
@@ -59,6 +60,7 @@ public class TechEnglishAiRecognitionRecordService {
         record.setBatchUuid(batchUuid);
         record.setStatus("PROCESSING");
         record.setSourceName(sourceName);
+        record.setBatchName(batchName);
         record.setScenario(scenario);
         record.setChunkIndex(chunkIndex);
         record.setChunkCount(chunkCount);
@@ -155,7 +157,7 @@ public class TechEnglishAiRecognitionRecordService {
         int chunkIndex = draft.chunkIndex() <= 0 ? 1 : draft.chunkIndex();
         int chunkCount = draft.chunkCount() <= 0 ? 1 : draft.chunkCount();
         start(sessionUuid, draft.batchUuid(), chunkIndex, chunkCount, imageCount,
-                draft.exampleCount(), draft.sourceName(), draft.scenario(), userId);
+                draft.exampleCount(), draft.sourceName(), draft.batchName(), draft.scenario(), userId);
         recognized(draft.batchUuid(), draft.payloadJson(), items, List.of());
     }
 
@@ -194,6 +196,7 @@ public class TechEnglishAiRecognitionRecordService {
                 sessionUuid,
                 status,
                 first.getSourceName(),
+                first.getBatchName(),
                 first.getScenario(),
                 imageCount,
                 itemCount,
@@ -340,6 +343,7 @@ public class TechEnglishAiRecognitionRecordService {
                 row.getSessionUuid(),
                 status,
                 row.getSourceName(),
+                row.getBatchName(),
                 row.getScenario(),
                 safeInt(row.getChunkCount()),
                 taskCount - processingCount,

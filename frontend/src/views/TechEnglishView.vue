@@ -4,9 +4,9 @@ import { ArrowRight, BookOpenText, Check, Download, FileDown, FileSearch, FileTe
 import { useRoute } from 'vue-router'
 import KnowledgeTagMultiSelector from '../components/KnowledgeTagMultiSelector.vue'
 import { fetchKnowledgeTagTree } from '../services/knowledgeTags'
-import { confirmTechEnglishScreenshotImport, createTechEnglishCorpus, downloadTechEnglishCorpusReport, fetchTechEnglishCorpus, importTechEnglishScreenshots, retryTechEnglishScreenshotImport } from '../services/techEnglish'
+import { confirmTechEnglishScreenshotImport, createTechEnglishCorpus, downloadTechEnglishCorpusReport, fetchTechEnglishCorpus, fetchTechEnglishRecognitionHistoryDetail, importTechEnglishScreenshots, retryTechEnglishScreenshotImport } from '../services/techEnglish'
 import { authStore } from '../stores/auth'
-import type { KnowledgeTagNode, TechEnglishAiConfirmPayload, TechEnglishAiImportResponse, TechEnglishAiItemTagAssignment, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishVocabularyExampleInput } from '../types'
+import type { KnowledgeTagNode, TechEnglishAiConfirmPayload, TechEnglishAiImportResponse, TechEnglishAiItemTagAssignment, TechEnglishAiRecognitionResponse, TechEnglishCorpusCreatePayload, TechEnglishCorpusPage, TechEnglishCorpusType, TechEnglishDifficulty, TechEnglishRecognitionHistoryDetail, TechEnglishRecognitionHistoryTask, TechEnglishVocabularyExampleInput } from '../types'
 
 interface FlatTagOption {
   id: number
@@ -23,6 +23,7 @@ interface AiImagePreview {
 
 interface AiRecognitionChunk extends TechEnglishAiRecognitionResponse {
   failed?: boolean
+  processing?: boolean
   errorMessage?: string
 }
 
@@ -56,6 +57,7 @@ const tagError = ref('')
 const selectedCreateTagId = ref<number | null>(null)
 const createTagPickerOpen = ref(false)
 const aiImageInput = ref<HTMLInputElement | null>(null)
+const aiBatchName = ref('')
 const aiScenario = ref('')
 const aiExampleCount = ref(2)
 const aiTagSearch = ref('')
@@ -159,6 +161,90 @@ function splitAiImages(images: AiImagePreview[], size: number): AiImagePreview[]
     chunks.push(images.slice(index, index + size))
   }
   return chunks
+}
+
+/** 将历史记录中的子任务恢复为当前页面可确认的识图结果。 */
+function historyTaskToRecognitionChunk(
+  detail: TechEnglishRecognitionHistoryDetail,
+  task: TechEnglishRecognitionHistoryTask,
+): AiRecognitionChunk {
+  return {
+    sessionUuid: detail.sessionUuid,
+    batchUuid: task.batchUuid,
+    chunkIndex: task.chunkIndex,
+    chunkCount: task.chunkCount,
+    importType: 'AUTO',
+    sourceName: detail.sourceName || '技术英语识图',
+    batchName: detail.batchName,
+    imageCount: task.imageCount,
+    itemCount: task.itemCount,
+    expiresAt: '',
+    items: task.items,
+    failed: task.status === 'FAILED' || task.status === 'PROCESSING',
+    processing: task.status === 'PROCESSING',
+    errorMessage: task.errorMessage || (task.status === 'PROCESSING' ? '服务器仍在处理本组任务，请稍后刷新识图记录。' : undefined),
+  }
+}
+
+/** 请求断线后从服务端永久记录恢复已完成或失败的真实批次。 */
+async function recoverRecognitionResults(
+  sessionUuid: string,
+  chunks: AiImagePreview[][],
+  settled: PromiseSettledResult<TechEnglishAiRecognitionResponse>[],
+): Promise<AiRecognitionChunk[]> {
+  const results = settled.map((item) => item.status === 'fulfilled' ? { ...item.value, failed: false } : null)
+  if (!settled.some((item) => item.status === 'rejected')) {
+    return results as AiRecognitionChunk[]
+  }
+  try {
+    const detail = await fetchTechEnglishRecognitionHistoryDetail(sessionUuid)
+    const taskByChunk = new Map(detail.tasks.map((task) => [task.chunkIndex, task]))
+    return chunks.map((chunk, index) => {
+      const current = results[index]
+      if (current) return current
+      const task = taskByChunk.get(index + 1)
+      if (task) return historyTaskToRecognitionChunk(detail, task)
+      const rejected = settled[index]
+      return {
+        sessionUuid,
+        batchUuid: `retry-${sessionUuid}-${index + 1}`,
+        chunkIndex: index + 1,
+        chunkCount: chunks.length,
+        importType: 'AUTO',
+        sourceName: detail.sourceName || '技术英语识图',
+        batchName: detail.batchName,
+        imageCount: chunk.length,
+        itemCount: 0,
+        expiresAt: '',
+        items: [],
+        failed: true,
+        errorMessage: rejected.status === 'rejected' && rejected.reason instanceof Error
+          ? rejected.reason.message : '识别失败，请重试',
+      }
+    })
+  } catch {
+    return chunks.map((chunk, index) => {
+      const current = results[index]
+      if (current) return current
+      const rejected = settled[index]
+      return {
+        sessionUuid,
+        batchUuid: `retry-${sessionUuid}-${index + 1}`,
+        chunkIndex: index + 1,
+        chunkCount: chunks.length,
+        importType: 'AUTO',
+        sourceName: '技术英语识图',
+        batchName: aiBatchName.value.trim() || null,
+        imageCount: chunk.length,
+        itemCount: 0,
+        expiresAt: '',
+        items: [],
+        failed: true,
+        errorMessage: rejected.status === 'rejected' && rejected.reason instanceof Error
+          ? rejected.reason.message : '识别失败，请重试',
+      }
+    })
+  }
 }
 
 /** 清空某条识图结果的全部标签。 */
@@ -445,6 +531,7 @@ function closeAiTagPicker(): void {
 
 /** 将选择或拖入的图片追加到待识别队列。 */
 function addAiImages(files: File[]): void {
+  if (aiImporting.value) return
   aiImportError.value = ''
   aiRecognitionResults.value = []
   aiImportResults.value = []
@@ -502,6 +589,7 @@ function resetAiImport(): void {
   aiImages.value.forEach((item) => URL.revokeObjectURL(item.url))
   aiImages.value = []
   aiScenario.value = ''
+  aiBatchName.value = ''
   aiExampleCount.value = 2
   aiTagSearch.value = ''
   selectedAiTagId.value = null
@@ -516,6 +604,7 @@ function resetAiImport(): void {
 
 /** 上传截图并调用 AI 生成等待用户确认的识别草稿。 */
 async function submitAiImport(): Promise<void> {
+  if (aiImporting.value) return
   aiImportError.value = ''
   aiRecognitionResults.value = []
   aiImportResults.value = []
@@ -544,29 +633,15 @@ async function submitAiImport(): Promise<void> {
       sessionUuid,
       chunkIndex: index + 1,
       chunkCount: chunks.length,
+      batchName: aiBatchName.value.trim(),
       scenario: aiScenario.value.trim(),
       exampleCount: aiExampleCount.value,
       images: chunk.map((item) => item.file),
     })))
-    const failures = settled
-      .map((item, index) => (item.status === 'rejected' ? `第 ${index + 1} 组：${item.reason instanceof Error ? item.reason.message : '识别失败'}` : ''))
+    const results = await recoverRecognitionResults(sessionUuid, chunks, settled)
+    const failures = results
+      .map((item) => (item.failed && !item.processing ? `第 ${item.chunkIndex} 组：${item.errorMessage || '识别失败'}` : ''))
       .filter(Boolean)
-    const results: AiRecognitionChunk[] = settled.map((item, index) => item.status === 'fulfilled'
-      ? { ...item.value, failed: false }
-      : {
-          sessionUuid,
-          batchUuid: `retry-${sessionUuid}-${index + 1}`,
-          chunkIndex: index + 1,
-          chunkCount: chunks.length,
-          importType: 'AUTO',
-          sourceName: '技术英语识图',
-          imageCount: chunks[index].length,
-          itemCount: 0,
-          expiresAt: '',
-          items: [],
-          failed: true,
-          errorMessage: item.reason instanceof Error ? item.reason.message : '识别失败，请重试',
-        })
     aiRecognitionResults.value = results
     results.filter((batch) => !batch.failed).forEach((batch) => {
       batch.items.forEach((item) => {
@@ -593,7 +668,7 @@ async function submitAiImport(): Promise<void> {
 
 /** 重试当前会话中失败的单个识别分组。 */
 async function retryAiBatch(batch: AiRecognitionChunk): Promise<void> {
-  if (!batch.failed || !aiSessionUuid.value || aiRetryingChunk.value !== null) return
+  if (!batch.failed || batch.processing || !aiSessionUuid.value || aiRetryingChunk.value !== null) return
   aiImportError.value = ''
   aiRetryingChunk.value = batch.chunkIndex
   try {
@@ -608,6 +683,7 @@ async function retryAiBatch(batch: AiRecognitionChunk): Promise<void> {
         sessionUuid: aiSessionUuid.value,
         chunkIndex: batch.chunkIndex,
         chunkCount: batch.chunkCount,
+        batchName: aiBatchName.value.trim(),
         scenario: aiScenario.value.trim(),
         exampleCount: aiExampleCount.value,
         images: chunk.map((item) => item.file),
@@ -817,6 +893,10 @@ onBeforeUnmount(() => {
           <section v-if="!aiRecognitionResults.length && !aiImportResults.length" class="tech-english-ai-settings">
             <div class="tech-english-ai-settings__heading"><small>03 · 设置识别规则</small><span>此阶段无需选择标签</span></div>
             <div class="tech-english-ai-settings__grid tech-english-ai-settings__grid--recognition">
+              <label>识图批次名称
+                <input v-model.trim="aiBatchName" maxlength="120" placeholder="例如：2026-09 云原生学习笔记" />
+                <small>只显示在识图记录中，不会写入语料列表。</small>
+              </label>
               <label>例句场景
                 <input v-model.trim="aiScenario" maxlength="80" placeholder="例如：机场维修沟通、软件开发会议" />
                 <small>AI 会按照这个场景生成扩展例句；留空则使用通用学习场景。</small>
@@ -878,15 +958,15 @@ onBeforeUnmount(() => {
                       <button class="secondary-button" type="button" :disabled="!selectedAiTagId" @click="applyCurrentTagToAiBatch(batch, 'replace')">批量替换</button>
                       <button class="secondary-button" type="button" @click="clearAiBatchAssignments(batch)">清空标签</button>
                     </div>
-                    <button v-if="batch.failed" class="secondary-button" type="button" :disabled="aiRetryingChunk !== null" @click="retryAiBatch(batch)">
+                    <button v-if="batch.failed && !batch.processing" class="secondary-button" type="button" :disabled="aiRetryingChunk !== null" @click="retryAiBatch(batch)">
                       <RotateCcw :size="15" />{{ aiRetryingChunk === batch.chunkIndex ? '重试中…' : '重试本组' }}
                     </button>
-                    <button v-else class="secondary-button" type="button" :disabled="aiConfirming" @click="confirmAiBatch(batch)">
+                    <button v-else-if="!batch.processing" class="secondary-button" type="button" :disabled="aiConfirming" @click="confirmAiBatch(batch)">
                       <Check :size="15" />{{ aiConfirming ? '入库中…' : '确认本组入库' }}
                     </button>
                   </div>
                 </header>
-                <p v-if="batch.failed" class="tech-english-ai-message tech-english-ai-message--error">{{ batch.errorMessage || '本组识别失败，可单独重试。' }}</p>
+                <p v-if="batch.failed" class="tech-english-ai-message" :class="{ 'tech-english-ai-message--error': !batch.processing }">{{ batch.errorMessage || (batch.processing ? '服务器仍在处理本组任务，请稍后刷新识图记录。' : '本组识别失败，可单独重试。') }}</p>
                 <div v-else class="tech-english-ai-review__list">
                   <article v-for="(item, itemIndex) in batch.items" :key="item.itemKey" class="tech-english-ai-item">
                     <header>

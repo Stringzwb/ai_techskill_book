@@ -106,6 +106,8 @@ app:
     timeout: ${AI_TIMEOUT:180s}
     # 每个 Key 的 SDK 内部重试次数，主备切换由业务层处理。
     max-retries: ${AI_MAX_RETRIES:0}
+    # 同一进程同时进行的视觉请求数，默认串行以避免上游长请求互相超时。
+    max-concurrent-vision-requests: ${AI_MAX_CONCURRENT_VISION_REQUESTS:1}
     # 单次回答最大 Token 数。
     max-output-tokens: ${AI_MAX_OUTPUT_TOKENS:8000}
     # 视觉接口允许的最大图片体积。

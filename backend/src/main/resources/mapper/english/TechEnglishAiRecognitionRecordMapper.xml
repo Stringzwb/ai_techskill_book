@@ -11,6 +11,7 @@
     <select id="selectSessionPage" resultType="com.aitechskill.book.english.domain.TechEnglishRecognitionSessionSummaryRow">
         SELECT session_uuid,
                MAX(source_name) AS source_name,
+               MAX(batch_name) AS batch_name,
                MAX(scenario) AS scenario,
                MAX(chunk_count) AS chunk_count,
                COUNT(*) AS task_count,

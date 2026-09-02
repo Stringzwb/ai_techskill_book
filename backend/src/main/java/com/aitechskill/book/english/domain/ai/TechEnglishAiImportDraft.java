@@ -18,6 +18,7 @@ import java.util.List;
  * @param imageFingerprints 原始截图指纹
  * @param payloadJson 已校验模板类型的 AI JSON
  * @param createdAt 草稿创建时间
+ * @param batchName 用户填写的识图批次名称，仅用于识图记录
  */
 public record TechEnglishAiImportDraft(
         String sessionUuid,
@@ -31,7 +32,26 @@ public record TechEnglishAiImportDraft(
         int exampleCount,
         List<ImageFingerprint> imageFingerprints,
         String payloadJson,
-        Instant createdAt) {
+        Instant createdAt,
+        String batchName) {
+
+    /** 兼容未保存批次名称的旧 Redis 草稿。 */
+    public TechEnglishAiImportDraft(
+            String sessionUuid,
+            String batchUuid,
+            int chunkIndex,
+            int chunkCount,
+            long userId,
+            String importType,
+            String sourceName,
+            String scenario,
+            int exampleCount,
+            List<ImageFingerprint> imageFingerprints,
+            String payloadJson,
+            Instant createdAt) {
+        this(sessionUuid, batchUuid, chunkIndex, chunkCount, userId, importType, sourceName,
+                scenario, exampleCount, imageFingerprints, payloadJson, createdAt, null);
+    }
 
     /**
      * 原始截图的顺序和内容指纹。

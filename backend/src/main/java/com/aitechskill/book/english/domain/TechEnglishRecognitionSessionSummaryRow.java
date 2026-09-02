@@ -17,6 +17,9 @@ public class TechEnglishRecognitionSessionSummaryRow {
     /** 资料来源。 */
     private String sourceName;
 
+    /** 用户填写的识图批次名称。 */
+    private String batchName;
+
     /** 扩展例句场景。 */
     private String scenario;
 

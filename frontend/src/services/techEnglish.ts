@@ -100,6 +100,7 @@ export function importTechEnglishScreenshots(payload: TechEnglishAiImportPayload
   body.append('sessionUuid', payload.sessionUuid)
   body.append('chunkIndex', String(payload.chunkIndex))
   body.append('chunkCount', String(payload.chunkCount))
+  if (payload.batchName?.trim()) body.append('batchName', payload.batchName.trim())
   body.append('scenario', payload.scenario)
   body.append('exampleCount', String(payload.exampleCount))
   payload.images?.forEach((image) => body.append('images', image))
