@@ -147,12 +147,12 @@ export function deleteTechEnglishRecognitionHistory(sessionUuid: string): Promis
 }
 
 /** 导出当前用户的一次识图会话。 */
-export function downloadTechEnglishRecognitionHistory(sessionUuid: string, format: 'markdown' | 'html') {
+export function downloadTechEnglishRecognitionHistory(sessionUuid: string, format: 'markdown' | 'html' | 'pdf' | 'image') {
   return `/api/tech-english/imports/history/${sessionUuid}/export?format=${format}`
 }
 
 /** 导出识图会话中的单个批次。 */
-export function downloadTechEnglishRecognitionBatchHistory(sessionUuid: string, batchUuid: string, format: 'markdown' | 'html') {
+export function downloadTechEnglishRecognitionBatchHistory(sessionUuid: string, batchUuid: string, format: 'markdown' | 'html' | 'pdf' | 'image') {
   return `/api/tech-english/imports/history/${sessionUuid}/batches/${batchUuid}/export?format=${format}`
 }
 

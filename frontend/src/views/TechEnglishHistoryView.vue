@@ -269,14 +269,14 @@ async function deleteSession(sessionUuid: string, event?: Event): Promise<void> 
   }
 }
 
-/** 下载当前会话的 Markdown 或 HTML 导出文件。 */
-function exportHistory(format: 'markdown' | 'html'): void {
+/** 下载当前会话的 Markdown、HTML、PDF 或图片导出文件。 */
+function exportHistory(format: 'markdown' | 'html' | 'pdf' | 'image'): void {
   if (!selectedSessionUuid.value) return
   window.location.href = downloadTechEnglishRecognitionHistory(selectedSessionUuid.value, format)
 }
 
 /** 导出当前会话中的单个批次。 */
-function exportBatch(batchUuid: string, format: 'markdown' | 'html'): void {
+function exportBatch(batchUuid: string, format: 'markdown' | 'html' | 'pdf' | 'image'): void {
   if (!selectedSessionUuid.value) return
   window.location.href = downloadTechEnglishRecognitionBatchHistory(selectedSessionUuid.value, batchUuid, format)
 }
@@ -316,7 +316,7 @@ watch(
       <div class="tech-english-hero__copy">
         <span>TECH ENGLISH HISTORY</span>
         <h1>识图记录</h1>
-        <p>这里记录每次截图识别的会话、分组和结果。失败分组可直接重试，已识别结果可查看、打标签并导出 Markdown 或 HTML。</p>
+        <p>这里记录每次截图识别的会话、分组和结果。失败分组可直接重试，已识别结果可查看、打标签并导出 Markdown、HTML、PDF 或图片。</p>
       </div>
       <div class="tech-english-heading-actions">
         <RouterLink class="secondary-button" to="/tech-english"><ArrowLeft :size="17" />返回语料库</RouterLink>
@@ -374,6 +374,8 @@ watch(
             <div class="tech-english-history-detail__actions">
               <button class="secondary-button" type="button" @click="exportHistory('markdown')"><Download :size="16" />导出 Markdown</button>
               <button class="secondary-button" type="button" @click="exportHistory('html')"><Download :size="16" />导出 HTML</button>
+              <button class="secondary-button" type="button" @click="exportHistory('pdf')"><Download :size="16" />导出 PDF</button>
+              <button class="secondary-button" type="button" @click="exportHistory('image')"><Download :size="16" />导出图片</button>
               <button class="secondary-button tech-english-history-delete-detail" type="button" :disabled="deletingSession === detail.sessionUuid || detail.status === 'PROCESSING'" :title="detail.status === 'PROCESSING' ? '任务处理中，暂不能删除' : '删除识图任务'" @click="deleteSession(detail.sessionUuid)"><Trash2 :size="16" />删除任务</button>
             </div>
           </header>
@@ -413,6 +415,8 @@ watch(
                     <small>{{ task.imageCount }} 张截图 · {{ task.itemCount }} 条语料</small>
                     <button type="button" class="secondary-button" @click="exportBatch(task.batchUuid, 'markdown')"><Download :size="14" />MD</button>
                     <button type="button" class="secondary-button" @click="exportBatch(task.batchUuid, 'html')"><Download :size="14" />HTML</button>
+                    <button type="button" class="secondary-button" @click="exportBatch(task.batchUuid, 'pdf')"><Download :size="14" />PDF</button>
+                    <button type="button" class="secondary-button" @click="exportBatch(task.batchUuid, 'image')"><Download :size="14" />图片</button>
                     <button v-if="task.status === 'RECOGNIZED'" type="button" class="primary-button" :disabled="batchImporting === task.batchUuid" @click="importBatch(task)">
                       <Check :size="14" />{{ batchImporting === task.batchUuid ? '入库中…' : '入库本批次' }}
                     </button>

@@ -555,7 +555,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tech-english-history-detail__header span { color: var(--primary); font-size: 10px; font-weight: 800; letter-spacing: .14em; }
 .tech-english-history-detail__header h2 { margin: 6px 0 0; font-size: 22px; }
 .tech-english-history-detail__header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
-.tech-english-history-detail__actions { display: flex; align-items: center; gap: 8px; }
+.tech-english-history-detail__actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .tech-english-history-detail__actions .secondary-button { min-height: 34px; padding: 0 10px; }
 .tech-english-history-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .tech-english-history-meta > div { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); }
