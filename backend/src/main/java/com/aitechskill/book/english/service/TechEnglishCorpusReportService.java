@@ -9,6 +9,7 @@ import com.aitechskill.book.english.domain.response.TechEnglishPatternExampleRes
 import com.aitechskill.book.english.domain.response.TechEnglishScenarioTagResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishVocabularyExampleResponse;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -89,7 +90,10 @@ public class TechEnglishCorpusReportService {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();
-            registerFont(builder);
+            if (!registerFont(builder)) {
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "TECH_ENGLISH_REPORT_FONT_UNAVAILABLE", "服务器缺少中文字体，无法生成 PDF 报告");
+            }
             builder.withHtmlContent(html, null);
             builder.toStream(output);
             builder.run();
@@ -101,19 +105,21 @@ public class TechEnglishCorpusReportService {
     }
 
     /** 尽量注册常见中文字体，避免 PDF 中文缺字。 */
-    private void registerFont(PdfRendererBuilder builder) {
+    private boolean registerFont(PdfRendererBuilder builder) {
         List<String> candidates = List.of(
-                "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
-                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf",
+                "/usr/local/share/fonts/ai-techskill-book/wqy-microhei.ttc",
+                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
                 "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
-                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttf");
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+                "/System/Library/Fonts/STHeiti Medium.ttc");
         for (String path : candidates) {
             File font = new File(path);
             if (font.isFile()) {
-                builder.useFont(font, "Noto Sans CJK SC");
-                return;
+                builder.useFont(font, "Noto Sans CJK SC", 400, FontStyle.NORMAL, true);
+                return true;
             }
         }
+        return false;
     }
 
     /** 生成适合浏览和打印的报告 HTML。 */

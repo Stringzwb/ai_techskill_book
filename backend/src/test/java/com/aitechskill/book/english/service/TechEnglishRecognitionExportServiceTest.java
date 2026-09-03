@@ -9,6 +9,8 @@ import com.aitechskill.book.english.domain.response.TechEnglishRecognitionHistor
 import com.aitechskill.book.english.domain.response.TechEnglishRecognitionHistoryTaskResponse;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -46,7 +48,8 @@ class TechEnglishRecognitionExportServiceTest {
         assertThat(html)
                 .contains("<title>测试任务</title>")
                 .contains("<h1>测试任务</h1>")
-                .contains("grid-template-columns:repeat(2")
+                .contains(".card{display:inline-block")
+                .contains("width:48%")
                 .contains("来源：测试来源")
                 .contains("resilient &lt;word&gt;")
                 .doesNotContain("view-switch")
@@ -77,7 +80,7 @@ class TechEnglishRecognitionExportServiceTest {
 
     /** PDF 和图片导出应返回对应的可打开文件格式。 */
     @Test
-    void exportsPdfAndPngFromTheSameHtmlTemplate() {
+    void exportsPdfAndPngFromTheSameHtmlTemplate() throws Exception {
         LocalDateTime createdAt = LocalDateTime.of(2026, 9, 1, 20, 0, 0);
         TechEnglishAiRecognitionItemResponse item = item("item-1", 1, "VOCABULARY", "resilient");
         TechEnglishRecognitionHistoryTaskResponse task = new TechEnglishRecognitionHistoryTaskResponse(
@@ -94,6 +97,11 @@ class TechEnglishRecognitionExportServiceTest {
 
         assertThat(pdf.contentType()).isEqualTo("application/pdf");
         assertThat(new String(pdf.content(), 0, 4, java.nio.charset.StandardCharsets.ISO_8859_1)).isEqualTo("%PDF");
+        try (PDDocument document = PDDocument.load(pdf.content())) {
+            assertThat(new PDFTextStripper().getText(document))
+                    .contains("导出任务")
+                    .contains("测试来源");
+        }
         assertThat(image.contentType()).isEqualTo("image/png");
         assertThat(new String(image.content(), 1, 3, java.nio.charset.StandardCharsets.ISO_8859_1)).isEqualTo("PNG");
     }

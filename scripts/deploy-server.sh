@@ -14,6 +14,10 @@ EXPECTED_PUBLIC_IP="38.22.90.174"
 EXPECTED_GIT_REMOTE="https://github.com/Stringzwb/ai_techskill_book.git"
 EXPECTED_GIT_SSH_REMOTE="git@github.com:Stringzwb/ai_techskill_book.git"
 CERT_DIR="/etc/letsencrypt/live/${EXPECTED_PUBLIC_IP}"
+CHINESE_FONT_DIR="/usr/local/share/fonts/ai-techskill-book"
+CHINESE_FONT_FILE="${CHINESE_FONT_DIR}/wqy-microhei.ttc"
+CHINESE_FONT_URL="https://cdn.jsdelivr.net/gh/anthonyfok/fonts-wqy-microhei@cd82defe33ec0e86e628329f1b63049ef562c8e5/wqy-microhei.ttc"
+CHINESE_FONT_SHA256="e4bca8df123ce01b104780f576ea1a58b9a5ff1662a91124b6d3180cb6c88212"
 DEPLOY_TIME="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="${RUNTIME_DIR}/backups/${DEPLOY_TIME}"
 
@@ -38,6 +42,7 @@ require_command npm
 require_command curl
 require_command systemctl
 require_command nginx
+require_command sha256sum
 
 # 部署脚本只允许在本项目生产机执行，避免 SSH 工具误连到其他服务器。
 [[ -d "${PROJECT_DIR}/.git" ]] || fail "未找到 ${PROJECT_DIR}/.git"
@@ -61,6 +66,21 @@ systemctl list-unit-files "${SERVICE_NAME}" --no-legend | grep -q "^${SERVICE_NA
   || fail "未找到 ${SERVICE_NAME}"
 [[ -s "${CERT_DIR}/fullchain.pem" ]] || fail "证书不存在：${CERT_DIR}/fullchain.pem"
 [[ -x /opt/certbot/bin/certbot ]] || fail "certbot 不存在或不可执行"
+
+# PDFBox 2.x 不能正确子集化 CentOS 默认的 CFF-in-TTC 字体。
+# 固定下载经校验的 TrueType 中文字体，避免 PDF/PNG 中文变成 ####。
+if [[ ! -s "${CHINESE_FONT_FILE}" ]] \
+    || ! printf '%s  %s\n' "${CHINESE_FONT_SHA256}" "${CHINESE_FONT_FILE}" | sha256sum -c - > /dev/null 2>&1; then
+  CHINESE_FONT_TEMP="$(mktemp /tmp/ai-techskill-book-font.XXXXXX.ttc)"
+  curl -fsSL --retry 3 --connect-timeout 10 --max-time 180 \
+    "${CHINESE_FONT_URL}" -o "${CHINESE_FONT_TEMP}"
+  printf '%s  %s\n' "${CHINESE_FONT_SHA256}" "${CHINESE_FONT_TEMP}" | sha256sum -c - \
+    || fail "中文字体校验失败"
+  install -d -o root -g root -m 755 "${CHINESE_FONT_DIR}"
+  install -o root -g root -m 644 "${CHINESE_FONT_TEMP}" "${CHINESE_FONT_FILE}"
+  rm -f "${CHINESE_FONT_TEMP}"
+fi
+[[ -s "${CHINESE_FONT_FILE}" ]] || fail "未找到中文字体：${CHINESE_FONT_FILE}"
 
 # 只允许从远端 main 快进更新源码。
 git -C "${PROJECT_DIR}" pull --ff-only origin main

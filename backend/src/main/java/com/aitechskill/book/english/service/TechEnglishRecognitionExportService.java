@@ -8,6 +8,7 @@ import com.aitechskill.book.english.domain.response.TechEnglishPatternExampleRes
 import com.aitechskill.book.english.domain.response.TechEnglishRecognitionHistoryDetailResponse;
 import com.aitechskill.book.english.domain.response.TechEnglishRecognitionHistoryTaskResponse;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -22,7 +23,10 @@ import java.util.List;
 import java.util.Locale;
 import javax.imageio.ImageIO;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.rendering.PDFRenderer;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -292,12 +296,11 @@ public class TechEnglishRecognitionExportService {
                 <meta name="viewport" content="width=device-width,initial-scale=1"/>
                 <title>__TITLE__</title><style>
                 @page{size:A4;margin:10mm}
-                :root{color-scheme:light;--ink:#172033;--muted:#647087;--paper:#f6f8fb;--line:#d9e1ec;--blue:#3157d5}
-                *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif}
-                main{width:min(1180px,calc(100% - 28px));margin:16px auto 40px}.hero{padding:16px 18px;border-bottom:2px solid var(--ink)}.eyebrow{color:var(--blue);font-size:10px;font-weight:800;letter-spacing:.12em}.hero h1{margin:3px 0 5px;font-size:clamp(22px,4vw,32px);line-height:1.2;overflow-wrap:anywhere}.hero p{margin:0;color:var(--muted)}.meta{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.meta span{padding:3px 7px;border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--muted);font-size:12px}
-                .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px;align-items:start}.card{break-inside:avoid;padding:10px 12px;border:1px solid var(--line);border-radius:7px;background:#fff}.card-head{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px}.card-head small{margin-left:auto}.index{color:#9aa7b9;font-weight:800}.badge{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800}.badge.word{color:#08765d;background:#d9f7ef}.badge.phrase{color:#8a4b07;background:#fff2cf}.badge.sentence{color:#294bb9;background:#e1e9ff}.card h2{margin:4px 0 3px;font:700 18px/1.25 Georgia,"Times New Roman",serif;overflow-wrap:anywhere}.chips,.keywords{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.chips span,.keywords span{padding:2px 5px;border-radius:4px;background:#eef2f8;color:#44516a;font-size:11px}.field{margin-top:6px}.field>b{display:block;margin-bottom:1px;color:var(--muted);font-size:10px}.field p{margin:0;white-space:pre-line;overflow-wrap:anywhere}.keywords{margin-top:2px}.keywords span{background:#f3f6fa}.examples{margin:2px 0 0;padding-left:17px}.examples li{padding:1px 0}.examples p{margin:0;font-weight:650;overflow-wrap:anywhere}.examples small{color:var(--muted)}.failed{grid-column:1/-1;padding:9px 11px;border:1px solid #efc7c7;border-radius:7px;background:#fff3f3;color:#8b3131}.failed p{display:inline;margin-left:6px}
-                @media(max-width:760px){main{width:min(100% - 18px,720px);margin-top:8px}.grid{grid-template-columns:1fr}.hero{padding:13px 2px}.failed{grid-column:auto}}
-                @media print{body{background:#fff;color:#172033}.hero{padding-top:0}.grid{display:block;margin-top:8px}.card{margin:0 0 7px;box-shadow:none}.failed{margin-bottom:7px}}
+                *{box-sizing:border-box}body{margin:0;background:#f6f8fb;color:#172033;font:14px/1.55 "Noto Sans CJK SC","Noto Sans CJK","Microsoft YaHei","PingFang SC",Arial,sans-serif}
+                main{width:96%;max-width:1180px;margin:16px auto 40px}.hero{padding:16px 18px;border-bottom:2px solid #172033}.eyebrow{color:#3157d5;font-size:10px;font-weight:800;letter-spacing:.12em}.hero h1{margin:3px 0 5px;font-size:30px;line-height:1.2;overflow-wrap:anywhere}.hero p{margin:0;color:#647087}.meta{margin-top:10px}.meta span{display:inline-block;margin:0 6px 5px 0;padding:3px 7px;border:1px solid #d9e1ec;border-radius:5px;background:#fff;color:#647087;font-size:12px}
+                .grid{margin-top:12px;font-size:0}.card{display:inline-block;vertical-align:top;width:48%;margin:0 1% 8px 0;break-inside:avoid;page-break-inside:avoid;padding:10px 12px;border:1px solid #d9e1ec;border-radius:7px;background:#fff;font-size:14px}.card:nth-child(even){margin-right:0}.card-head{color:#647087;font-size:11px}.card-head span,.card-head small{display:inline-block;vertical-align:middle}.card-head span+span{margin-left:6px}.card-head small{float:right}.index{color:#9aa7b9;font-weight:800}.badge{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800}.badge.word{color:#08765d;background:#d9f7ef}.badge.phrase{color:#8a4b07;background:#fff2cf}.badge.sentence{color:#294bb9;background:#e1e9ff}.card h2{margin:4px 0 3px;font:700 18px/1.25 Georgia,"Noto Sans CJK SC",serif;overflow-wrap:anywhere}.chips,.keywords{margin-top:4px}.chips span,.keywords span{display:inline-block;margin:0 4px 4px 0;padding:2px 5px;border-radius:4px;background:#eef2f8;color:#44516a;font-size:11px}.field{margin-top:6px}.field>b{display:block;margin-bottom:1px;color:#647087;font-size:10px}.field p{margin:0;white-space:pre-line;overflow-wrap:anywhere}.keywords{margin-top:2px}.keywords span{background:#f3f6fa}.examples{margin:2px 0 0;padding-left:17px}.examples li{padding:1px 0}.examples p{margin:0;font-weight:600;overflow-wrap:anywhere}.examples small{color:#647087}.failed{padding:9px 11px;border:1px solid #efc7c7;border-radius:7px;background:#fff3f3;color:#8b3131;font-size:14px}.failed p{display:inline;margin-left:6px}
+                @media(max-width:760px){main{width:96%;max-width:720px;margin-top:8px}.card{display:block;width:100%;margin-right:0}.hero{padding:13px 2px}}
+                @media print{body{background:#fff;color:#172033}main{width:100%;margin:0}.hero{padding-top:0}.grid{margin-top:8px}.card{width:48%;margin-bottom:7px}.failed{margin-bottom:7px}}
                 </style></head><body><main><header class="hero"><div class="eyebrow">AI SCREENSHOT RECOGNITION</div>
                 <h1>__TITLE__</h1><p>来源：__SOURCE__ · __CREATED_AT__</p><div class="meta"><span>__IMAGE_COUNT__ 张截图</span><span>__ITEM_COUNT__ 条语料</span><span>状态：__STATUS__</span>__SCENARIO__</div></header><section class="grid">__FAILURES____CARDS__</section></main></body></html>
                 """
@@ -317,11 +320,18 @@ public class TechEnglishRecognitionExportService {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();
-            registerFont(builder);
+            if (!registerFont(builder)) {
+                throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "TECH_ENGLISH_RECOGNITION_FONT_UNAVAILABLE", "服务器缺少中文字体，无法生成识图文件");
+            }
             builder.withHtmlContent(html, null);
             builder.toStream(output);
             builder.run();
-            return output.toByteArray();
+            byte[] content = output.toByteArray();
+            validatePdf(content);
+            return content;
+        } catch (BusinessException exception) {
+            throw exception;
         } catch (Exception exception) {
             throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "TECH_ENGLISH_RECOGNITION_PDF_FAILED", "识图 PDF 生成失败", exception);
@@ -371,20 +381,46 @@ public class TechEnglishRecognitionExportService {
         }
     }
 
-    /** 尽量注册常见中文字体，避免 PDF 和图片中文缺字。 */
-    private void registerFont(PdfRendererBuilder builder) {
+    /** 注册可子集化的 TrueType 中文字体，避免 PDF 和图片中文缺字。 */
+    private boolean registerFont(PdfRendererBuilder builder) {
         List<String> candidates = List.of(
-                "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
-                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.otf",
+                "/usr/local/share/fonts/ai-techskill-book/wqy-microhei.ttc",
+                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
                 "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
-                "/usr/share/fonts/truetype/wqy/wqy-microhei.ttf");
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+                "/System/Library/Fonts/STHeiti Medium.ttc");
         for (String path : candidates) {
             File font = new File(path);
             if (font.isFile()) {
-                builder.useFont(font, "Noto Sans CJK SC");
-                return;
+                // PDFBox 2.x cannot subset CFF fonts. These candidates are TrueType
+                // fonts and collections, so subsetting keeps exports small and valid.
+                builder.useFont(font, "Noto Sans CJK SC", 400, FontStyle.NORMAL, true);
+                return true;
             }
         }
+        return false;
+    }
+
+    /** 确认字体已真正嵌入，并且固定中文标题没有退化为井号。 */
+    private void validatePdf(byte[] content) throws Exception {
+        try (PDDocument document = PDDocument.load(content)) {
+            boolean embedded = false;
+            for (PDPage page : document.getPages()) {
+                for (org.apache.pdfbox.cos.COSName name : page.getResources().getFontNames()) {
+                    PDFont font = page.getResources().getFont(name);
+                    embedded = embedded || font != null && font.isEmbedded();
+                }
+            }
+            String text = new PDFTextStripper().getText(document);
+            if (!embedded || !containsChinese(text)) {
+                throw new IllegalStateException("中文字体未正确嵌入识图 PDF");
+            }
+        }
+    }
+
+    private boolean containsChinese(String value) {
+        return value != null && value.codePoints()
+                .anyMatch(codePoint -> codePoint >= 0x3400 && codePoint <= 0x9fff);
     }
 
     /** 返回导出页面的任务标题，兼容没有批次名称的历史记录。 */
