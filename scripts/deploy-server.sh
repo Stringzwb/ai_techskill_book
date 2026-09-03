@@ -18,6 +18,7 @@ CHINESE_FONT_DIR="/usr/local/share/fonts/ai-techskill-book"
 CHINESE_FONT_FILE="${CHINESE_FONT_DIR}/wqy-microhei.ttc"
 CHINESE_FONT_URL="https://cdn.jsdelivr.net/gh/anthonyfok/fonts-wqy-microhei@cd82defe33ec0e86e628329f1b63049ef562c8e5/wqy-microhei.ttc"
 CHINESE_FONT_SHA256="e4bca8df123ce01b104780f576ea1a58b9a5ff1662a91124b6d3180cb6c88212"
+IPA_FONT_FILE="/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf"
 DEPLOY_TIME="$(date +%Y%m%d_%H%M%S)"
 BACKUP_DIR="${RUNTIME_DIR}/backups/${DEPLOY_TIME}"
 
@@ -81,6 +82,7 @@ if [[ ! -s "${CHINESE_FONT_FILE}" ]] \
   rm -f "${CHINESE_FONT_TEMP}"
 fi
 [[ -s "${CHINESE_FONT_FILE}" ]] || fail "未找到中文字体：${CHINESE_FONT_FILE}"
+[[ -s "${IPA_FONT_FILE}" ]] || fail "未找到 IPA 字体：${IPA_FONT_FILE}"
 
 # 只允许从远端 main 快进更新源码。
 git -C "${PROJECT_DIR}" pull --ff-only origin main

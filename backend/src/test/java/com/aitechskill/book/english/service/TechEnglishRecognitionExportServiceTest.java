@@ -31,7 +31,7 @@ class TechEnglishRecognitionExportServiceTest {
         LocalDateTime createdAt = LocalDateTime.of(2026, 9, 1, 20, 0, 0);
         TechEnglishAiRecognitionItemResponse item = new TechEnglishAiRecognitionItemResponse(
                 "item-1", 1, "VOCABULARY", "resilient <word>", "adjective", "有韧性的",
-                "/r/", "/r/", null, null, List.of(), List.of(), List.of());
+                "/ˌθerəˈpiː/", "/ˈθerəpi/", null, null, List.of(), List.of(), List.of());
         TechEnglishRecognitionHistoryTaskResponse task = new TechEnglishRecognitionHistoryTaskResponse(
                 "batch-1", "RECOGNIZED", 1, 1, 1, 1, null, null,
                 createdAt, createdAt, null, List.of(item));
@@ -52,6 +52,8 @@ class TechEnglishRecognitionExportServiceTest {
                 .contains("width:48%")
                 .contains("来源：测试来源")
                 .contains("resilient &lt;word&gt;")
+                .contains("<span class=\"phonetic\">/ˌθerəˈpiː/</span>")
+                .contains("<span class=\"phonetic\">/ˈθerəpi/</span>")
                 .doesNotContain("view-switch")
                 .doesNotContain("MissingFormatWidthException");
     }
@@ -82,7 +84,10 @@ class TechEnglishRecognitionExportServiceTest {
     @Test
     void exportsPdfAndPngFromTheSameHtmlTemplate() throws Exception {
         LocalDateTime createdAt = LocalDateTime.of(2026, 9, 1, 20, 0, 0);
-        TechEnglishAiRecognitionItemResponse item = item("item-1", 1, "VOCABULARY", "resilient");
+        TechEnglishAiRecognitionItemResponse item = new TechEnglishAiRecognitionItemResponse(
+                "item-1", 1, "VOCABULARY", "therapy", "noun", "治疗",
+                "/ˌθerəˈpiː/", "/ˈθerəpi/ · ə ɜː θ ð ʃ ʒ ŋ æ ɪ ʊ ɔː ɑː ˈ ˌ",
+                null, null, List.of(), List.of(), List.of());
         TechEnglishRecognitionHistoryTaskResponse task = new TechEnglishRecognitionHistoryTaskResponse(
                 "batch-1", "RECOGNIZED", 1, 1, 1, 1, null, null,
                 createdAt, createdAt, null, List.of(item));
@@ -100,7 +105,9 @@ class TechEnglishRecognitionExportServiceTest {
         try (PDDocument document = PDDocument.load(pdf.content())) {
             assertThat(new PDFTextStripper().getText(document))
                     .contains("导出任务")
-                    .contains("测试来源");
+                    .contains("测试来源")
+                    .contains("/ˌθerəˈpiː/")
+                    .contains("/ˈθerəpi/ · ə ɜː θ ð ʃ ʒ ŋ æ ɪ ʊ ɔː ɑː ˈ ˌ");
         }
         assertThat(image.contentType()).isEqualTo("image/png");
         assertThat(new String(image.content(), 1, 3, java.nio.charset.StandardCharsets.ISO_8859_1)).isEqualTo("PNG");

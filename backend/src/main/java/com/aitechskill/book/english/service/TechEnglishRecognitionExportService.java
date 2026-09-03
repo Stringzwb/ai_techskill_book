@@ -252,8 +252,8 @@ public class TechEnglishRecognitionExportService {
                     || StringUtils.hasText(item.americanPhonetic())) {
                 cards.append("<div class=\"chips\">");
                 appendHtmlChip(cards, item.partOfSpeech());
-                appendHtmlChip(cards, prefixed("英 ", item.britishPhonetic()));
-                appendHtmlChip(cards, prefixed("美 ", item.americanPhonetic()));
+                appendHtmlPhoneticChip(cards, "英 ", item.britishPhonetic());
+                appendHtmlPhoneticChip(cards, "美 ", item.americanPhonetic());
                 cards.append("</div>");
             }
             appendHtmlSection(cards, "释义 / 翻译", item.translationText());
@@ -298,7 +298,7 @@ public class TechEnglishRecognitionExportService {
                 @page{size:A4;margin:10mm}
                 *{box-sizing:border-box}body{margin:0;background:#f6f8fb;color:#172033;font:14px/1.55 "Noto Sans CJK SC","Noto Sans CJK","Microsoft YaHei","PingFang SC",Arial,sans-serif}
                 main{width:96%;max-width:1180px;margin:16px auto 40px}.hero{padding:16px 18px;border-bottom:2px solid #172033}.eyebrow{color:#3157d5;font-size:10px;font-weight:800;letter-spacing:.12em}.hero h1{margin:3px 0 5px;font-size:30px;line-height:1.2;overflow-wrap:anywhere}.hero p{margin:0;color:#647087}.meta{margin-top:10px}.meta span{display:inline-block;margin:0 6px 5px 0;padding:3px 7px;border:1px solid #d9e1ec;border-radius:5px;background:#fff;color:#647087;font-size:12px}
-                .grid{margin-top:12px;font-size:0}.card{display:inline-block;vertical-align:top;width:48%;margin:0 1% 8px 0;break-inside:avoid;page-break-inside:avoid;padding:10px 12px;border:1px solid #d9e1ec;border-radius:7px;background:#fff;font-size:14px}.card:nth-child(even){margin-right:0}.card-head{color:#647087;font-size:11px}.card-head span,.card-head small{display:inline-block;vertical-align:middle}.card-head span+span{margin-left:6px}.card-head small{float:right}.index{color:#9aa7b9;font-weight:800}.badge{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800}.badge.word{color:#08765d;background:#d9f7ef}.badge.phrase{color:#8a4b07;background:#fff2cf}.badge.sentence{color:#294bb9;background:#e1e9ff}.card h2{margin:4px 0 3px;font:700 18px/1.25 Georgia,"Noto Sans CJK SC",serif;overflow-wrap:anywhere}.chips,.keywords{margin-top:4px}.chips span,.keywords span{display:inline-block;margin:0 4px 4px 0;padding:2px 5px;border-radius:4px;background:#eef2f8;color:#44516a;font-size:11px}.field{margin-top:6px}.field>b{display:block;margin-bottom:1px;color:#647087;font-size:10px}.field p{margin:0;white-space:pre-line;overflow-wrap:anywhere}.keywords{margin-top:2px}.keywords span{background:#f3f6fa}.examples{margin:2px 0 0;padding-left:17px}.examples li{padding:1px 0}.examples p{margin:0;font-weight:600;overflow-wrap:anywhere}.examples small{color:#647087}.failed{padding:9px 11px;border:1px solid #efc7c7;border-radius:7px;background:#fff3f3;color:#8b3131;font-size:14px}.failed p{display:inline;margin-left:6px}
+                .grid{margin-top:12px;font-size:0}.card{display:inline-block;vertical-align:top;width:48%;margin:0 1% 8px 0;break-inside:avoid;page-break-inside:avoid;padding:10px 12px;border:1px solid #d9e1ec;border-radius:7px;background:#fff;font-size:14px}.card:nth-child(even){margin-right:0}.card-head{color:#647087;font-size:11px}.card-head span,.card-head small{display:inline-block;vertical-align:middle}.card-head span+span{margin-left:6px}.card-head small{float:right}.index{color:#9aa7b9;font-weight:800}.badge{padding:2px 6px;border-radius:4px;font-size:10px;font-weight:800}.badge.word{color:#08765d;background:#d9f7ef}.badge.phrase{color:#8a4b07;background:#fff2cf}.badge.sentence{color:#294bb9;background:#e1e9ff}.card h2{margin:4px 0 3px;font:700 18px/1.25 Georgia,"Noto Sans CJK SC",serif;overflow-wrap:anywhere}.chips,.keywords{margin-top:4px}.chips span,.keywords span{display:inline-block;margin:0 4px 4px 0;padding:2px 5px;border-radius:4px;background:#eef2f8;color:#44516a;font-size:11px}.chips .phonetic{margin:0;padding:0;background:transparent;font-family:"Tech English IPA","DejaVu Sans","Arial Unicode MS",sans-serif}.field{margin-top:6px}.field>b{display:block;margin-bottom:1px;color:#647087;font-size:10px}.field p{margin:0;white-space:pre-line;overflow-wrap:anywhere}.keywords{margin-top:2px}.keywords span{background:#f3f6fa}.examples{margin:2px 0 0;padding-left:17px}.examples li{padding:1px 0}.examples p{margin:0;font-weight:600;overflow-wrap:anywhere}.examples small{color:#647087}.failed{padding:9px 11px;border:1px solid #efc7c7;border-radius:7px;background:#fff3f3;color:#8b3131;font-size:14px}.failed p{display:inline;margin-left:6px}
                 @media(max-width:760px){main{width:96%;max-width:720px;margin-top:8px}.card{display:block;width:100%;margin-right:0}.hero{padding:13px 2px}}
                 @media print{body{background:#fff;color:#172033}main{width:100%;margin:0}.hero{padding-top:0}.grid{margin-top:8px}.card{width:48%;margin-bottom:7px}.failed{margin-bottom:7px}}
                 </style></head><body><main><header class="hero"><div class="eyebrow">AI SCREENSHOT RECOGNITION</div>
@@ -320,9 +320,9 @@ public class TechEnglishRecognitionExportService {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();
-            if (!registerFont(builder)) {
+            if (!registerFonts(builder)) {
                 throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR,
-                        "TECH_ENGLISH_RECOGNITION_FONT_UNAVAILABLE", "服务器缺少中文字体，无法生成识图文件");
+                        "TECH_ENGLISH_RECOGNITION_FONT_UNAVAILABLE", "服务器缺少中文或音标字体，无法生成识图文件");
             }
             builder.withHtmlContent(html, null);
             builder.toStream(output);
@@ -381,20 +381,30 @@ public class TechEnglishRecognitionExportService {
         }
     }
 
-    /** 注册可子集化的 TrueType 中文字体，避免 PDF 和图片中文缺字。 */
-    private boolean registerFont(PdfRendererBuilder builder) {
-        List<String> candidates = List.of(
+    /** 注册可子集化的中文与 IPA 字体，避免 PDF 和图片出现缺字方块。 */
+    private boolean registerFonts(PdfRendererBuilder builder) {
+        boolean chineseRegistered = registerFirstAvailableFont(builder, "Noto Sans CJK SC", List.of(
                 "/usr/local/share/fonts/ai-techskill-book/wqy-microhei.ttc",
                 "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
                 "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
                 "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-                "/System/Library/Fonts/STHeiti Medium.ttc");
+                "/System/Library/Fonts/STHeiti Medium.ttc"));
+        boolean ipaRegistered = registerFirstAvailableFont(builder, "Tech English IPA", List.of(
+                "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/System/Library/Fonts/Supplemental/Arial.ttf",
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"));
+        return chineseRegistered && ipaRegistered;
+    }
+
+    private boolean registerFirstAvailableFont(
+            PdfRendererBuilder builder,
+            String family,
+            List<String> candidates) {
         for (String path : candidates) {
             File font = new File(path);
             if (font.isFile()) {
-                // PDFBox 2.x cannot subset CFF fonts. These candidates are TrueType
-                // fonts and collections, so subsetting keeps exports small and valid.
-                builder.useFont(font, "Noto Sans CJK SC", 400, FontStyle.NORMAL, true);
+                builder.useFont(font, family, 400, FontStyle.NORMAL, true);
                 return true;
             }
         }
@@ -421,6 +431,13 @@ public class TechEnglishRecognitionExportService {
     private boolean containsChinese(String value) {
         return value != null && value.codePoints()
                 .anyMatch(codePoint -> codePoint >= 0x3400 && codePoint <= 0x9fff);
+    }
+
+    private void appendHtmlPhoneticChip(StringBuilder output, String prefix, String value) {
+        if (StringUtils.hasText(value)) {
+            output.append("<span>").append(htmlText(prefix)).append("<span class=\"phonetic\">")
+                    .append(htmlText(value)).append("</span></span>");
+        }
     }
 
     /** 返回导出页面的任务标题，兼容没有批次名称的历史记录。 */
@@ -469,16 +486,11 @@ public class TechEnglishRecognitionExportService {
         }
     }
 
-    /** 追加 HTML 音标或词性胶囊。 */
+    /** 追加普通 HTML 胶囊。 */
     private void appendHtmlChip(StringBuilder output, String value) {
         if (StringUtils.hasText(value)) {
             output.append("<span>").append(htmlText(value)).append("</span>");
         }
-    }
-
-    /** 有内容时增加展示前缀。 */
-    private String prefixed(String prefix, String value) {
-        return StringUtils.hasText(value) ? prefix + value : null;
     }
 
     /** 返回导出里的语料类型展示名称。 */

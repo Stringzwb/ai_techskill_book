@@ -90,9 +90,9 @@ public class TechEnglishCorpusReportService {
         try (ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             PdfRendererBuilder builder = new PdfRendererBuilder();
             builder.useFastMode();
-            if (!registerFont(builder)) {
+            if (!registerFonts(builder)) {
                 throw new BusinessException(HttpStatus.INTERNAL_SERVER_ERROR,
-                        "TECH_ENGLISH_REPORT_FONT_UNAVAILABLE", "服务器缺少中文字体，无法生成 PDF 报告");
+                        "TECH_ENGLISH_REPORT_FONT_UNAVAILABLE", "服务器缺少中文或音标字体，无法生成 PDF 报告");
             }
             builder.withHtmlContent(html, null);
             builder.toStream(output);
@@ -104,18 +104,30 @@ public class TechEnglishCorpusReportService {
         }
     }
 
-    /** 尽量注册常见中文字体，避免 PDF 中文缺字。 */
-    private boolean registerFont(PdfRendererBuilder builder) {
-        List<String> candidates = List.of(
+    /** 注册中文与 IPA 字体，避免 PDF 中的汉字或音标缺字。 */
+    private boolean registerFonts(PdfRendererBuilder builder) {
+        boolean chineseRegistered = registerFirstAvailableFont(builder, "Noto Sans CJK SC", List.of(
                 "/usr/local/share/fonts/ai-techskill-book/wqy-microhei.ttc",
                 "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
                 "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.ttf",
                 "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-                "/System/Library/Fonts/STHeiti Medium.ttc");
+                "/System/Library/Fonts/STHeiti Medium.ttc"));
+        boolean ipaRegistered = registerFirstAvailableFont(builder, "Tech English IPA", List.of(
+                "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/System/Library/Fonts/Supplemental/Arial.ttf",
+                "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"));
+        return chineseRegistered && ipaRegistered;
+    }
+
+    private boolean registerFirstAvailableFont(
+            PdfRendererBuilder builder,
+            String family,
+            List<String> candidates) {
         for (String path : candidates) {
             File font = new File(path);
             if (font.isFile()) {
-                builder.useFont(font, "Noto Sans CJK SC", 400, FontStyle.NORMAL, true);
+                builder.useFont(font, family, 400, FontStyle.NORMAL, true);
                 return true;
             }
         }
@@ -137,7 +149,7 @@ public class TechEnglishCorpusReportService {
                 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.62 "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",Arial,sans-serif}main{width:min(980px,calc(100% - 28px));margin:24px auto 48px}
                 .hero{padding:22px 0 14px;border-bottom:2px solid #202633}.hero small{color:var(--muted);font-size:12px;letter-spacing:.12em}.hero h1{margin:4px 0;font-size:34px;line-height:1.1;letter-spacing:0}.hero p{margin:0;color:var(--muted)}.summary{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.summary span{padding:4px 9px;border:1px solid var(--line);border-radius:999px;background:#fff;font-size:12px}
                 .card{break-inside:avoid;margin-top:12px;padding:15px 16px;border:1px solid var(--line);border-radius:8px;background:#fff}.card header{display:flex;align-items:center;gap:8px}.num{font-weight:800;color:#98a2b3}.badge{padding:2px 7px;border-radius:999px;font-size:11px;font-weight:800}.vocabulary{color:#145b49;background:#dbf5ee}.phrase{color:#8a4b07;background:#fff2cf}.sentence{color:#2148ae;background:#e7edff}.article{color:#913552;background:#ffe6ee}.tags{display:flex;gap:5px;flex-wrap:wrap;margin-left:auto}.tags span{padding:2px 6px;border-radius:6px;background:#f0f3f8;color:#475467;font-size:11px}
-                h2{margin:9px 0 6px;font:700 22px/1.28 Georgia,"Times New Roman","Noto Sans CJK SC",serif;letter-spacing:0}.meta{display:flex;gap:6px;flex-wrap:wrap}.meta span{padding:2px 7px;border-radius:6px;background:#f4f6fa;color:#485467;font-size:12px}section{margin-top:10px}label{display:block;margin-bottom:2px;color:var(--muted);font-size:11px;font-weight:800}p{margin:0}.examples{margin:3px 0 0;padding-left:20px}.examples li{padding:2px 0}.keywords{display:flex;gap:5px;flex-wrap:wrap}.keywords span{padding:3px 7px;border-radius:6px;background:#f4f6fa}.footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:right}
+                h2{margin:9px 0 6px;font:700 22px/1.28 Georgia,"Times New Roman","Noto Sans CJK SC",serif;letter-spacing:0}.meta{display:flex;gap:6px;flex-wrap:wrap}.meta span{padding:2px 7px;border-radius:6px;background:#f4f6fa;color:#485467;font-size:12px}.meta .phonetic{padding:0;background:transparent;font-family:"Tech English IPA","DejaVu Sans","Arial Unicode MS",sans-serif}section{margin-top:10px}label{display:block;margin-bottom:2px;color:var(--muted);font-size:11px;font-weight:800}p{margin:0}.examples{margin:3px 0 0;padding-left:20px}.examples li{padding:2px 0}.keywords{display:flex;gap:5px;flex-wrap:wrap}.keywords span{padding:3px 7px;border-radius:6px;background:#f4f6fa}.footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:right}
                 @media print{body{background:#fff}main{width:100%;margin:0}.card{box-shadow:none}.hero{padding-top:0}}
                 </style></head><body><main><header class="hero"><small>TECH ENGLISH CORPUS REPORT</small><h1>技术英语语料报告</h1><p>生成时间：__CREATED_AT__</p><div class="summary"><span>共 __COUNT__ 条语料</span><span>最多支持 100 条</span></div></header>__CARDS__<p class="footer">Generated by AI TechSkill Book</p></main></body></html>
                 """
@@ -199,8 +211,8 @@ public class TechEnglishCorpusReportService {
     private void appendMeta(StringBuilder output, TechEnglishCorpusDetailResponse item) {
         output.append("<div class=\"meta\">");
         appendChip(output, item.partOfSpeech());
-        appendChip(output, prefixed("英 ", item.britishPhonetic()));
-        appendChip(output, prefixed("美 ", item.americanPhonetic()));
+        appendPhoneticChip(output, "英 ", item.britishPhonetic());
+        appendPhoneticChip(output, "美 ", item.americanPhonetic());
         appendChip(output, prefixed("场景 ", item.scenario()));
         appendChip(output, item.sourceName());
         output.append("</div>");
@@ -224,6 +236,13 @@ public class TechEnglishCorpusReportService {
     private void appendChip(StringBuilder output, String value) {
         if (StringUtils.hasText(value)) {
             output.append("<span>").append(htmlText(value)).append("</span>");
+        }
+    }
+
+    private void appendPhoneticChip(StringBuilder output, String prefix, String value) {
+        if (StringUtils.hasText(value)) {
+            output.append("<span>").append(htmlText(prefix)).append("<span class=\"phonetic\">")
+                    .append(htmlText(value)).append("</span></span>");
         }
     }
 
